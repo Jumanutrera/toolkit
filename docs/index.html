@@ -2,83 +2,16 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Copy Code V4</title>
-  <style>
-    body {
-      background: #1e1e1e;
-      font-family: 'Segoe UI', sans-serif;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-    }
-
-    .container {
-      background-color: #fff;
-      border-radius: 12px;
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
-      padding: 50px 40px;
-      max-width: 600px;
-      width: 90%;
-      text-align: center;
-      border: 1px solid #ccc;
-    }
-
-    h1 {
-      font-size: 28px;
-      color: #222;
-      margin-bottom: 10px;
-    }
-
-    p.description {
-      font-size: 16px;
-      color: #444;
-      margin-bottom: 40px;
-    }
-
-    .bookmarklet-button {
-      display: inline-block;
-      padding: 12px 22px;
-      background: #0788ff;
-      color: #fff;
-      border-radius: 6px;
-      font-size: 18px;
-      text-decoration: none;
-      user-select: none;
-      cursor: grab;
-      transition: transform 0.1s ease;
-    }
-
-    .bookmarklet-button:active {
-      cursor: grabbing;
-      transform: scale(0.98);
-    }
-
-    footer {
-      margin-top: 40px;
-      font-size: 12px;
-      color: #777;
-      font-style: italic;
-    }
-
-    footer span.heart {
-      color: red;
-      font-style: normal;
-    }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Toolkit de Juan M</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="container">
-    <h1>Copy Code V46565656565</h1>
-    <p class="description">Arrastra el botón a tu barra de marcadores y úsalo cuando estés en una carga para copiar su información.</p>
-
-    <a class="bookmarklet-button" href="javascript:(function(){const interval=setInterval(()=>{const header=document.querySelector('.load-overview-header__load-status span'),truckContainer=document.querySelector('.truck-container div');if(header&&truckContainer){clearInterval(interval);truckContainer.click();const statusEl=document.querySelector('.load-overview-header__load-status span'),statusBox=document.querySelector('.load-overview-header__load-status'),stops=document.querySelectorAll('[id^=&quot;stop-card-container--&quot;]'),carrierCode=document.querySelector('.carrier-header__title-code'),proNumText=document.querySelector('.truck-header__title-name'),customerCodeEl=document.querySelector('.customer-card-header__title-code');const code=carrierCode?carrierCode.innerText.trim():&quot;&quot;,pro=proNumText?proNumText.innerText.match(/\d+/g)?.join(&quot;&quot;)||&quot;-&quot;:&quot;-&quot;,customerCode=customerCodeEl?customerCodeEl.innerText.trim():&quot;&quot;;let truckId=&quot;-&quot;;const truckInfo=document.querySelector('.truck-container .truck-content');if(statusEl){const loadNum=statusEl.innerText.match(/#(\d+)/)[1];if(truckInfo){const truckLabel=Array.from(truckInfo.querySelectorAll('.truck-content__title')).find(el=>el.innerText.trim()===&quot;Truck Number&quot;);if(truckLabel){const valueEl=truckLabel.nextElementSibling;if(valueEl)truckId=valueEl.innerText.trim()}}const stopStates=[];stops.forEach(stop=>{const stopText=stop.querySelector('.stop-card-header__info__header__top div');if(stopText){if(code===&quot;FORLATX&quot;){const city=stopText.innerText.split(',')[0].trim();const state=stopText.innerText.split(',')[1].split(&quot; &quot;)[1];stopStates.push(`${city}, ${state}`)}else{const state=stopText.innerText.split(',')[1].split(&quot; &quot;)[1];state&amp;&amp;stopStates.push(state)}}});const copyToClipboard=text=&gt;{const area=document.createElement('textarea');area.value=text;document.body.appendChild(area);area.select();document.execCommand('copy');document.body.removeChild(area);const btn=document.createElement('button');btn.innerText='Copied';btn.style.cssText='text-align:center;line-height:25px;width:70px;height:25px;font-size:16px;position:relative;z-index:1000;background-color:#353535;color:white;border:none;border-radius:5px;cursor:not-allowed;';btn.disabled=!0;statusBox.appendChild(btn)};const copyWithDispatcherMap=map=&gt;{const dispatcher=map[truckId]||&quot;UNKNOWN&quot;;copyToClipboard(`L# ${loadNum} - ${stopStates[0]} to ${stopStates[stopStates.length-1]} - truck# ${truckId} - ${dispatcher}`)};if(stopStates.length&gt;0){if(code===&quot;RICLIAR&quot;){if(pro===&quot;-&quot;)copyToClipboard(`L# ${loadNum} - ${stopStates[0]} to ${stopStates[stopStates.length-1]} - NO PRO`);else if(truckId===&quot;-&quot;)copyToClipboard(`L# ${loadNum} - ${stopStates[0]} to ${stopStates[stopStates.length-1]} - No Truck - PRO: ${pro}`);else copyToClipboard(`L# ${loadNum} - ${stopStates[0]} to ${stopStates[stopStates.length-1]} - truck# ${truckId} - PRO: ${pro}`)}else if(code===&quot;FORLATX&quot;){copyToClipboard(truckId===&quot;-&quot;?`L# ${loadNum} - ${stopStates[0]} - No Truck`:`L# ${loadNum} - ${stopStates[0]} - truck# ${truckId}`)}else if(code===&quot;VALBUAZ&quot;){const cache=localStorage.getItem(&quot;dispatcherMap&quot;),ts=localStorage.getItem(&quot;dispatcherMapDate&quot;),now=Date.now();if(cache&amp;&amp;ts&amp;&amp;now-Number(ts)&lt;=86400000)copyWithDispatcherMap(JSON.parse(cache));else fetch(&quot;https://script.google.com/macros/s/AKfycbw8Hntjp_caYWVjPEGdFPyjmf0LGz1f9qlaRVOnEyN7xL29_Mt0aDmgTfVY7U6cbTBHCw/exec&quot;).then(r=&gt;r.json()).then(json=&gt;{localStorage.setItem(&quot;dispatcherMap&quot;,JSON.stringify(json));localStorage.setItem(&quot;dispatcherMapDate&quot;,String(now));copyWithDispatcherMap(json)}).catch(()=&gt;alert(&quot;Failed to fetch dispatcher map&quot;))}else copyToClipboard(truckId===&quot;-&quot;?`L# ${loadNum} - ${stopStates[0]} to ${stopStates[stopStates.length-1]} - need DR info`:`L# ${loadNum} - ${stopStates[0]} to ${stopStates[stopStates.length-1]} - truck# ${truckId}`)};const slackBadge=document.createElement(&quot;div&quot;);slackBadge.style.cssText=&quot;display:inline-flex;align-items:center;gap:8px;margin-left:12px;font-size:14px;background:#444;color:white;padding:4px 10px;border-radius:12px;font-weight:500;&quot;;slackBadge.textContent=&quot;Slack ⏳&quot;;statusBox.appendChild(slackBadge);if(!customerCode){slackBadge.textContent=&quot;Slack ❌ no customer&quot;;return}const slackKey=&quot;__slackCustomerCodes&quot;,slackTSKey=&quot;__slackCustomerTS&quot;,now=Date.now(),slackURL=&quot;https://docs.google.com/spreadsheets/d/e/2PACX-1vTnKVk3U2ozJfyoMf2hPdOofculhRH0K9SLs48tSae597LrH7e8UibVhGcQ8ZSnm_6Mpetn-5FsR3dI/pub?output=csv&quot;,oneHour=3600000,setSlackBadge=set=&gt;{const hasSlack=set.has(customerCode);slackBadge.textContent=hasSlack?&quot;SLACK ✔️&quot;:&quot;SLACK ❌&quot;;slackBadge.style.backgroundColor=hasSlack?&quot;#2E7D32&quot;:&quot;#C62828&quot;};if(localStorage[slackKey]&amp;&amp;localStorage[slackTSKey]&amp;&amp;now-parseInt(localStorage[slackTSKey],10)&lt;oneHour){const cachedSet=new Set(JSON.parse(localStorage[slackKey]));setSlackBadge(cachedSet)}else fetch(slackURL).then(r=&gt;r.text()).then(csv=&gt;{const codes=csv.split(&quot;\n&quot;).slice(1).map(line=&gt;line.split(&quot;,&quot;)[0]?.trim()).filter(Boolean);const codeSet=new Set(codes);localStorage[slackKey]=JSON.stringify([...codeSet]);localStorage[slackTSKey]=String(now);setSlackBadge(codeSet)}).catch(()=&gt;{slackBadge.textContent=&quot;Slack ❌ error&quot;;slackBadge.style.backgroundColor=&quot;#C62828&quot;})}}},100);})();">COPY</a>
-
-    <footer>
-      Hecho con <span class="heart">❤️</span> por y para el RJones Team
-    </footer>
+    <h1>🧰 Toolkit de Juan M</h1>
+    <p class="subtitle">Tu espacio personal de herramientas</p>
+    <a href="bookmarklets/index.html" class="btn">Ir a Bookmarklets</a>
   </div>
 </body>
 </html>
+
