@@ -5,7 +5,7 @@
 }
 
 body {
-  background: #1a1a1a;
+  background: #1c1c1c;
   font-family: 'Segoe UI', sans-serif;
   color: #f0f0f0;
   display: flex;
@@ -23,7 +23,7 @@ body {
 
 h1 {
   font-size: 3rem;
-  color: #ffcf59;
+  color: #ffc857;
   margin-bottom: 0.5rem;
 }
 
@@ -36,25 +36,24 @@ h1 {
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.2rem;
+  gap: 1rem;
 }
 
 .card {
-  display: block;
-  background: #2a2a2a;
-  color: #f0f0f0;
-  padding: 1.2rem;
-  border-radius: 12px;
+  background: #2b2b2b;
+  padding: 1rem;
+  border-radius: 10px;
   text-decoration: none;
+  color: #f0f0f0;
   font-size: 1rem;
-  font-weight: 500;
-  transition: background 0.3s ease, transform 0.2s ease;
+  transition: all 0.2s ease;
   box-shadow: 0 0 0 transparent;
+  border: 1px solid #444;
 }
 
 .card:hover {
-  background: #3a3a3a;
-  transform: translateY(-3px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+  background-color: #3a3a3a;
+  transform: translateY(-4px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5);
 }
 
