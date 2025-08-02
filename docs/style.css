@@ -11,18 +11,20 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh;
+  min-height: 100vh;
+  padding: 2rem;
 }
 
 .container {
   text-align: center;
-  padding: 2rem;
+  max-width: 900px;
+  margin: auto;
 }
 
 h1 {
-  font-size: 2.8rem;
-  margin-bottom: 0.5rem;
+  font-size: 3rem;
   color: #ffcf59;
+  margin-bottom: 0.5rem;
 }
 
 .subtitle {
@@ -31,17 +33,29 @@ h1 {
   margin-bottom: 2rem;
 }
 
-.btn {
-  background-color: #ff5c5c;
-  color: white;
-  text-decoration: none;
-  padding: 0.8rem 1.5rem;
-  border-radius: 8px;
-  font-weight: bold;
-  transition: background 0.3s ease;
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.2rem;
 }
 
-.btn:hover {
-  background-color: #ff3b3b;
+.card {
+  display: block;
+  background: #2a2a2a;
+  color: #f0f0f0;
+  padding: 1.2rem;
+  border-radius: 12px;
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: background 0.3s ease, transform 0.2s ease;
+  box-shadow: 0 0 0 transparent;
 }
+
+.card:hover {
+  background: #3a3a3a;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+}
+
 
