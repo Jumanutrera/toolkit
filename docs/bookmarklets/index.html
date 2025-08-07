@@ -3,185 +3,26 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Toolkit · Bookmarklets</title>
-  <style>
-    :root{
-      --bg:#0f1115; --panel:#141821; --muted:#8a93a6; --text:#e8ecf1; --acc:#5cc8ff; --acc2:#78f3a2; --border:#222838; --danger:#ff7b7b;
-    }
-    *{box-sizing:border-box}
-    body{margin:0; font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial; background:linear-gradient(120deg,#0b0d12,#121726 35%,#0c111b); color:var(--text)}
-    header{padding:24px 16px; border-bottom:1px solid var(--border); position:sticky; top:0; backdrop-filter:saturate(1.2) blur(6px); background:rgba(15,17,21,.7); z-index:10}
-    .wrap{max-width:1100px; margin:0 auto; padding:20px 16px 80px}
-    h1{font-size:24px; margin:0 0 4px}
-    .sub{color:var(--muted); font-size:14px}
-    .grid{display:grid; grid-template-columns:repeat(12,1fr); gap:16px; margin-top:20px}
-    .card{grid-column:span 12; background:linear-gradient(180deg,#161b25,#121722); border:1px solid var(--border); border-radius:16px; padding:16px; position:relative; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,.35)}
-    @media(min-width:640px){.card{grid-column:span 6}}
-    @media(min-width:980px){.card{grid-column:span 4}}
-    .title{font-weight:700; font-size:18px; margin:0 0 6px}
-    .desc{color:var(--muted); font-size:14px; margin:0 0 14px}
-    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
-    a.drag{display:inline-flex; align-items:center; gap:8px; text-decoration:none; color:#061019; background:var(--acc); padding:10px 14px; border-radius:12px; font-weight:700; border:1px solid rgba(255,255,255,.18); box-shadow:0 6px 16px rgba(92,200,255,.35); cursor:grab}
-    a.drag:active{cursor:grabbing; transform:translateY(1px)}
-    button{background:#1b2231; color:var(--text); border:1px solid var(--border); border-radius:12px; padding:10px 12px; font-weight:600; cursor:pointer}
-    button:hover{border-color:#2b3347}
-    .ok{color:var(--acc2); font-size:12px}
-    .tag{display:inline-block; font-size:11px; padding:4px 8px; border:1px solid var(--border); border-radius:999px; color:#b9c3d9; background:#0e1320; margin-bottom:8px}
-    .meta{display:flex; gap:10px; align-items:center; color:var(--muted); font-size:12px}
-    .pre{margin-top:10px; background:#0a0f17; border:1px solid #20283a; border-radius:10px; padding:10px; max-height:160px; overflow:auto; font-family:ui-monospace,Consolas,Menlo,monospace; font-size:12.5px; color:#dfe5ee; white-space:pre}
-    .foot{margin-top:28px; font-size:12.5px; color:var(--muted)}
-    .warn{color:var(--danger)}
-  </style>
+  <title>Bookmarklets · Toolkit de Juan M</title>
+  <link rel="stylesheet" href="../assets/css/toolkit.css" />
 </head>
 <body>
-<header>
-  <div class="wrap">
-    <h1>Bookmarklets</h1>
-    <div class="sub">Arrastra el botón a tu barra de marcadores. El código se carga desde <code>/scripts/*.js</code>.</div>
-  </div>
-</header>
+  <header class="app">
+    <div class="header-inner">
+      <a class="breadcrumb" href="../index.html">← Volver al inicio</a>
+      <h1 class="h1"><span class="logo">🔖</span> Bookmarklets</h1>
+      <div class="sub">Arrastra el botón a tu barra de marcadores. El código se carga desde <code>/bookmarklets/scripts/*.js</code>.</div>
+    </div>
+  </header>
 
-<main class="wrap">
-  <div class="grid" id="grid"></div>
-  <div class="foot">
-    Tip: edita los archivos en <code>/scripts/</code> y recarga. El botón “Refrescar código” vuelve a leer el archivo sin recargar la página.
-  </div>
-</main>
+  <main class="container">
+    <div class="grid" id="grid"><!-- JS renderiza las cards aquí --></div>
+    <div class="footer-note">
+      Tip: edita los archivos en <code>/bookmarklets/scripts/</code> y pulsa “Refrescar código”. Mantén este estilo para todas tus páginas enlazando <code>assets/css/toolkit.css</code>.
+    </div>
+  </main>
 
-<script>
-  // Config de bookmarklets (archivo, título y descripción)
-  const BOOKMARKLETS = [
-    {
-      key: "check-code",
-      title: "check-code",
-      desc: "Valida/inspecciona datos en la página de carga y muestra un resumen.",
-      path: "./scripts/check-code.js",
-      tag: "Utilidad"
-    },
-    {
-      key: "copy-code",
-      title: "copy-code",
-      desc: "Copia al portapapeles el texto formateado (número, origen → destino).",
-      path: "./scripts/copy-code.js",
-      tag: "Clipboard"
-    },
-    {
-      key: "board-assistant",
-      title: "board-assistant",
-      desc: "Acciones rápidas sobre el board: abrir cargas, marcar revisadas, exportar.",
-      path: "./scripts/board-assistant.js",
-      tag: "Board"
-    }
-  ];
-
-  // Minificación muy básica (comentarios y espacios comunes)
-  const MINIFY = (src) => {
-    try{
-      return src
-        .replace(/\/\*[\s\S]*?\*\//g, "")
-        .replace(/(^|\s)\/\/.*$/gm, "")
-        .replace(/\s+/g, " ")
-        .replace(/\s*([{}();,:])\s*/g, "$1")
-        .trim();
-    }catch(e){ return src.trim(); }
-  };
-
-  const asBookmarklet = (code) => "javascript:(function(){" + code + "})();";
-
-  const el = {
-    grid: document.getElementById("grid"),
-  };
-
-  // Crea una card
-  function renderCard(item){
-    const section = document.createElement("section");
-    section.className = "card";
-    section.dataset.key = item.key;
-    section.innerHTML = `
-      <span class="tag">${item.tag || "Tool"}</span>
-      <h2 class="title">${item.title}</h2>
-      <p class="desc">${item.desc}</p>
-      <div class="row">
-        <a class="drag" id="drag-${item.key}" href="#">🔗 Arrastra: ${item.key}</a>
-        <button data-copy="${item.key}">Copiar bookmarklet</button>
-        <button data-refresh="${item.key}">Refrescar código</button>
-        <span class="ok" id="ok-${item.key}"></span>
-      </div>
-      <div class="meta">
-        <span>Archivo: <code>${item.path}</code></span>
-        <a id="open-${item.key}" href="${item.path}" target="_blank" rel="noopener">Abrir archivo</a>
-      </div>
-      <pre class="pre" id="preview-${item.key}">Cargando…</pre>
-    `;
-    el.grid.appendChild(section);
-  }
-
-  // Cargar código desde archivo, minificar, setear href y preview
-  async function loadAndBuild(item){
-    const ok = document.getElementById(`ok-${item.key}`);
-    const preview = document.getElementById(`preview-${item.key}`);
-    const drag = document.getElementById(`drag-${item.key}`);
-
-    try{
-      const res = await fetch(item.path, {cache:"no-store"});
-      if(!res.ok) throw new Error(`HTTP ${res.status}`);
-      const raw = await res.text();
-
-      // Mostrar primeras ~2000 chars para referencia
-      preview.textContent = raw.length > 2000 ? raw.slice(0,2000) + "\n…(truncado)" : raw;
-
-      const min = MINIFY(raw);
-      const href = asBookmarklet(min);
-      drag.setAttribute("href", href);
-      drag.setAttribute("title", "Arrástrame a tu barra de marcadores");
-      if(ok) ok.textContent = "✓ listo para arrastrar";
-      return href;
-    }catch(err){
-      preview.textContent = `Error al cargar el archivo.\n${err.message || err}\nRevisa la ruta: ${item.path}`;
-      if(ok){ ok.textContent = "⚠ error"; ok.classList.add("warn"); }
-    }
-  }
-
-  // Copiar URL del bookmarklet
-  async function copyBookmarklet(key){
-    const item = BOOKMARKLETS.find(b=>b.key===key);
-    if(!item) return;
-    // asegura que esté actualizado
-    const href = await loadAndBuild(item);
-    if(!href) return;
-    try{
-      await navigator.clipboard.writeText(href);
-      const ok = document.getElementById(`ok-${key}`);
-      if(ok){ ok.textContent = "✓ copiado al portapapeles"; }
-    }catch(e){
-      alert("No se pudo copiar. Copia manualmente desde el botón arrastrable.");
-    }
-  }
-
-  // Refrescar (releer archivo sin recargar toda la página)
-  async function refreshCode(key){
-    const item = BOOKMARKLETS.find(b=>b.key===key);
-    if(!item) return;
-    await loadAndBuild(item);
-  }
-
-  // Init
-  (async function init(){
-    BOOKMARKLETS.forEach(renderCard);
-
-    // Eventos
-    document.querySelectorAll("button[data-copy]").forEach(btn=>{
-      btn.addEventListener("click", ()=> copyBookmarklet(btn.getAttribute("data-copy")));
-    });
-    document.querySelectorAll("button[data-refresh]").forEach(btn=>{
-      btn.addEventListener("click", ()=> refreshCode(btn.getAttribute("data-refresh")));
-    });
-
-    // Cargar todos
-    for(const item of BOOKMARKLETS){
-      await loadAndBuild(item);
-    }
-  })();
-</script>
+  <script src="./bookmarklets.js"></script>
 </body>
 </html>
+
