@@ -47,7 +47,7 @@ function cardTemplate(item){
       <p class="desc">${item.desc}</p>
       <div class="row" style="align-items: center;">
         <a class="btn btn-primary" id="drag-${item.key}" href="#">${item.btn}</a>
-        <span style="font-size:12px; color:var(--muted);">⬅ Arrástrame a tu barra de marcadores</span>
+        <span style="font-size:12px; color:var(--muted);">⬅ Arrástrame</span>
       </div>
       <div class="row" style="margin-top:10px;">
         <button class="btn" data-copy="${item.key}">Copiar</button>
