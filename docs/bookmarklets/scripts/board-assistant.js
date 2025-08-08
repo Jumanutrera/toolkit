@@ -1,5 +1,5 @@
 (() => {
-  // ===== Utils =====
+  // ============ Utils ============
   const $$  = (root, sel) => Array.from(root.querySelectorAll(sel));
   const txt = (el) => (el ? el.textContent.trim() : "");
   const byIdLike = (row, prefix) => row.querySelector(`[id^="${prefix}"]`);
@@ -30,9 +30,11 @@
     }
   }
 
-  // ===== Dispatcher map (Value Truck) =====
+  // ============ Dispatcher map (Value Truck) ============
   const MAP_URL = "https://script.google.com/macros/s/AKfycbw8Hntjp_caYWVjPEGdFPyjmf0LGz1f9qlaRVOnEyN7xL29_Mt0aDmgTfVY7U6cbTBHCw/exec";
-  const MAP_KEY = "__dispatcherMap", MAP_TS = "__dispatcherMapTS", DAY = 86400000;
+  const MAP_KEY = "__dispatcherMap";
+  const MAP_TS  = "__dispatcherMapTS";
+  const DAY     = 86400000;
   async function getDispatcherMap() {
     const now = Date.now();
     try {
@@ -47,7 +49,7 @@
     } catch { return {}; }
   }
 
-  // ===== Parse board =====
+  // ============ Parse board ============
   function parseBoard() {
     const rows = $$(
       document,
@@ -77,6 +79,7 @@
       const pu = getCityState(pickup);
       const dl = getCityState(deliver);
 
+      // Rich Logistics: PRO# = 7 dígitos en el *nombre del driver*
       let pro = null;
       if (isRich(carrier)) {
         const m = (driverName || "").match(/\b(\d{7})\b/);
@@ -95,7 +98,7 @@
     }).filter(r => r.loadNumber && r.carrier);
   }
 
-  // ===== Formatting rules =====
+  // ============ Formatting rules ============
   async function formatLinesForCarrier(carrier, arr) {
     if (isForza(carrier)) {
       return arr.map(r => {
@@ -117,13 +120,15 @@
         const disp = (map[r.truck] || "UNKNOWN").toUpperCase();
         (groups[disp] ||= []).push(`L# ${r.loadNumber} - ${r.puStOnly} to ${r.dlStOnly} - truck# ${r.truck} - ${disp}`);
       }
-      // Orden: dispatchers alfabético, con NEED DR INFO al final
+      // Orden alfabético, con NEED DR INFO al final
       const keys = Object.keys(groups).sort((a,b) => {
         if (a === "NEED DR INFO") return 1;
         if (b === "NEED DR INFO") return -1;
         return a.localeCompare(b);
       });
-      return keys.map(k => groups[k].join("\n")).join("\n\n").split("\n"); // devolvemos array de líneas ya con separadores
+      // Unir grupos con línea en blanco
+      const chunks = keys.map(k => groups[k].join("\n"));
+      return chunks.join("\n\n").split("\n");
     }
 
     if (isRich(carrier)) {
@@ -141,7 +146,7 @@
     });
   }
 
-  // ===== UI (junto al título) =====
+  // ============ UI (junto a "Save Search") ============
   function injectStylesOnce() {
     const ID = "__ba_styles";
     if (document.getElementById(ID)) return;
@@ -155,6 +160,7 @@
       }
       #__ba_toggle:hover { background:#0063a3; }
       #__ba_toggle.__open .__chev { transform: rotate(180deg); }
+
       #__ba_panel {
         position:absolute; z-index:999999; margin-top:8px;
         background:#0f172a; color:#e5e7eb; border:1px solid #173154;
@@ -164,9 +170,11 @@
         transition:opacity .15s ease, transform .15s ease;
       }
       #__ba_panel.__show { opacity:1; transform: translateY(0); pointer-events:auto; }
+
       #__ba_header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
       #__ba_title  { font-weight:900; letter-spacing:.2px; }
       #__ba_info   { color:#94a3b8; margin:6px 0 10px; }
+
       #__ba_close {
         background:#1f2937; color:#e5e7eb; border:1px solid #374151; border-radius:10px;
         padding:6px 8px; font-weight:700; cursor:pointer;
@@ -196,32 +204,37 @@
     document.head.appendChild(style);
   }
 
-  function getTrackingBoardTitleEl() {
-    const exact = document.querySelector("div.styles__header__titleContent-j8cVUoC1vPGETKErDPmj");
-    if (exact && /tracking board/i.test(exact.textContent)) return exact;
-    const hs = $$(document, "h1, h2, [role='heading'], div, section");
-    return hs.find(h => /tracking board/i.test(h.textContent)) || null;
+  function findSaveSearchButton() {
+    // Botón exacto con texto "Save Search"
+    const all = $$(
+      document,
+      'button, .arrive_Button__buttonText, .arrive_Button__button'
+    );
+    return all.find((b) => /save search/i.test(b.textContent || ""));
   }
 
   function createDockUI() {
     injectStylesOnce();
 
-    const titleEl = getTrackingBoardTitleEl();
-    if (!titleEl || !titleEl.parentElement) return null;
-
+    // limpiar instancias previas
     document.getElementById("__ba_dock")?.remove();
     document.getElementById("__ba_panel")?.remove();
 
+    const anchor = findSaveSearchButton();
+    if (!anchor || !anchor.parentElement) return null;
+
+    // insertar botón literal a la derecha de "Save Search"
     const dock = document.createElement("span");
     dock.id = "__ba_dock";
     dock.style.cssText = "display:inline-flex; align-items:center; gap:8px; margin-left:10px;";
-    titleEl.insertAdjacentElement("afterend", dock);
+    anchor.insertAdjacentElement("afterend", dock);
 
     const toggle = document.createElement("button");
     toggle.id = "__ba_toggle";
     toggle.innerHTML = `<span>Board Assistant</span><i class="__chev"></i>`;
     dock.appendChild(toggle);
 
+    // panel
     const panel = document.createElement("div");
     panel.id = "__ba_panel";
     panel.innerHTML = `
@@ -246,6 +259,9 @@
     panel.querySelector("#__ba_close").addEventListener("click", close);
     window.addEventListener("resize", () => { if (panel.classList.contains("__show")) positionPanel(); });
     window.addEventListener("scroll", () => { if (panel.classList.contains("__show")) positionPanel(); });
+    // Cerrar al mover la rueda del mouse (en cualquier parte)
+    const wheelClose = () => { if (panel.classList.contains("__show")) close(); };
+    window.addEventListener("wheel", wheelClose, { passive: true });
 
     return { list: panel.querySelector("#__ba_list"), info: panel.querySelector("#__ba_info") };
   }
@@ -265,7 +281,7 @@
       `;
       item.addEventListener("click", async () => {
         const lines = await formatLinesForCarrier(carrier, arr);
-        await copyText(Array.isArray(lines) ? lines.join("\n") : lines.join("\n")); // por si VT devuelve array con separadores
+        await copyText(Array.isArray(lines) ? lines.join("\n") : lines.join("\n"));
         ui.info.textContent = `✓ Copiado ${arr.length} líneas de ${carrier}`;
         setTimeout(() => {
           const total = entries.reduce((n,[,v]) => n + v.length, 0);
@@ -276,7 +292,7 @@
     }
   }
 
-  // ===== Run =====
+  // ============ Run ============
   (async function run(){
     const rows = parseBoard();
     const groups = rows.reduce((acc, r) => {
