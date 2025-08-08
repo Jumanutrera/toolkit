@@ -11,15 +11,15 @@ const BOOKMARKLETS = [
   },
   {
     key: "copy-code",
-    title: "COPY-CODE",
+    title: "COPY-CODE (RJONES)",
     desc: "Copia al portapapeles el texto formateado de la carga.",
     path: "./scripts/copy-code.js",
     btn: "COPY"
   },
   {
     key: "board-assistant",
-    title: "BOARD-ASSISTANT",
-    desc: "Acciones rápidas sobre el board: abrir cargas, marcar, exportar.",
+    title: "BOARD-ASSISTANT (RJONES)",
+    desc: "Copia al portapapeles a gran escala desde el Tracking Board, copia por carrier.",
     path: "./scripts/board-assistant.js",
     btn: "BASSIST"
   }
