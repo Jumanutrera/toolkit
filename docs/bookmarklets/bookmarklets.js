@@ -2,28 +2,28 @@
 const BOOKMARKLETS = [
   {
     key: "check-code",
-    title: "CHECK",
-    emoji: "✅",
+    title: "CHECK-CODE",
+    desc: "Valida datos en la página de carga y muestra si es trackeable.",
     path: "./scripts/check-code.js",
-    tag: "Utilidad"
+    btn: "CHECK"
   },
   {
     key: "copy-code",
-    title: "COPY",
-    emoji: "📋",
+    title: "COPY-CODE",
+    desc: "Copia al portapapeles el texto formateado de la carga.",
     path: "./scripts/copy-code.js",
-    tag: "Clipboard"
+    btn: "COPY"
   },
   {
     key: "board-assistant",
-    title: "BASSIST",
-    emoji: "🧭",
+    title: "BOARD-ASSISTANT",
+    desc: "Acciones rápidas sobre el board: abrir cargas, marcar, exportar.",
     path: "./scripts/board-assistant.js",
-    tag: "Board"
+    btn: "BASSIST"
   }
 ];
 
-// Minificación muy básica
+// Minificación básica
 const MINIFY = (src) => {
   try{
     return src
@@ -41,9 +41,13 @@ const $grid = document.getElementById("grid");
 function cardTemplate(item){
   return `
     <section class="card" data-key="${item.key}">
-      <span class="tag">${item.tag}</span>
-      <div class="row">
-        <a class="btn btn-primary" id="drag-${item.key}" href="#">${item.emoji} ${item.title}</a>
+      <h2 class="title">${item.title}</h2>
+      <p class="desc">${item.desc}</p>
+      <div class="row" style="align-items: center;">
+        <a class="btn btn-primary" id="drag-${item.key}" href="#">${item.btn}</a>
+        <span style="font-size:12px; color:var(--muted);">⬅ Arrástrame a tu barra de marcadores</span>
+      </div>
+      <div class="row" style="margin-top:10px;">
         <button class="btn" data-copy="${item.key}">Copiar</button>
         <button class="btn" data-refresh="${item.key}">Refrescar</button>
         <span class="ok" id="ok-${item.key}"></span>
