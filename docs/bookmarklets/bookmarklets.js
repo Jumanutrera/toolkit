@@ -27,12 +27,14 @@ const BOOKMARKLETS = [
 const MINIFY = (src) => {
   try{
     return src
+      // quita comentarios /* ... */
       .replace(/\/\*[\s\S]*?\*\//g, "")
+      // quita comentarios // pero deja saltos de línea
       .replace(/(^|\s)\/\/.*$/gm, "")
-      .replace(/\s+/g, " ")
-      .replace(/\s*([{}();,:])\s*/g, "$1")
       .trim();
-  }catch(e){ return src.trim(); }
+  }catch(e){ 
+    return src.trim(); 
+  }
 };
 const asBookmarklet = (code) => "javascript:(function(){" + code + "})();";
 
