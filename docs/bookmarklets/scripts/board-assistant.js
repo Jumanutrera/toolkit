@@ -120,13 +120,11 @@
         const disp = (map[r.truck] || "UNKNOWN").toUpperCase();
         (groups[disp] ||= []).push(`L# ${r.loadNumber} - ${r.puStOnly} to ${r.dlStOnly} - truck# ${r.truck} - ${disp}`);
       }
-      // Orden alfabético, con NEED DR INFO al final
       const keys = Object.keys(groups).sort((a,b) => {
         if (a === "NEED DR INFO") return 1;
         if (b === "NEED DR INFO") return -1;
         return a.localeCompare(b);
       });
-      // Unir grupos con línea en blanco
       const chunks = keys.map(k => groups[k].join("\n"));
       return chunks.join("\n\n").split("\n");
     }
@@ -171,14 +169,16 @@
       }
       #__ba_panel.__show { opacity:1; transform: translateY(0); pointer-events:auto; }
 
-      #__ba_header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+      #__ba_header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; gap:8px; }
       #__ba_title  { font-weight:900; letter-spacing:.2px; }
       #__ba_info   { color:#94a3b8; margin:6px 0 10px; }
 
-      #__ba_close {
+      #__ba_close, #__ba_refresh {
         background:#1f2937; color:#e5e7eb; border:1px solid #374151; border-radius:10px;
         padding:6px 8px; font-weight:700; cursor:pointer;
       }
+      #__ba_refresh[disabled] { opacity:.6; cursor:default; }
+
       #__ba_list { display:block; }
       .__ba_item {
         display:flex; align-items:center; justify-content:space-between;
@@ -205,25 +205,19 @@
   }
 
   function findSaveSearchButton() {
-    // Botón exacto con texto "Save Search"
-    const all = $$(
-      document,
-      'button, .arrive_Button__buttonText, .arrive_Button__button'
-    );
+    const all = $$(document, 'button, .arrive_Button__buttonText, .arrive_Button__button');
     return all.find((b) => /save search/i.test(b.textContent || ""));
   }
 
   function createDockUI() {
     injectStylesOnce();
 
-    // limpiar instancias previas
     document.getElementById("__ba_dock")?.remove();
     document.getElementById("__ba_panel")?.remove();
 
     const anchor = findSaveSearchButton();
     if (!anchor || !anchor.parentElement) return null;
 
-    // insertar botón literal a la derecha de "Save Search"
     const dock = document.createElement("span");
     dock.id = "__ba_dock";
     dock.style.cssText = "display:inline-flex; align-items:center; gap:8px; margin-left:10px;";
@@ -234,12 +228,14 @@
     toggle.innerHTML = `<span>Board Assistant</span><i class="__chev"></i>`;
     dock.appendChild(toggle);
 
-    // panel
     const panel = document.createElement("div");
     panel.id = "__ba_panel";
     panel.innerHTML = `
       <div id="__ba_header">
-        <div id="__ba_title">Carriers</div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div id="__ba_title">Carriers</div>
+          <button id="__ba_refresh" title="Actualizar lista">Actualizar</button>
+        </div>
         <button id="__ba_close">Cerrar</button>
       </div>
       <div id="__ba_info">Cargando…</div>
@@ -259,11 +255,29 @@
     panel.querySelector("#__ba_close").addEventListener("click", close);
     window.addEventListener("resize", () => { if (panel.classList.contains("__show")) positionPanel(); });
     window.addEventListener("scroll", () => { if (panel.classList.contains("__show")) positionPanel(); });
-    // Cerrar al mover la rueda del mouse (en cualquier parte)
-    const wheelClose = () => { if (panel.classList.contains("__show")) close(); };
-    window.addEventListener("wheel", wheelClose, { passive: true });
+    window.addEventListener("wheel", () => { if (panel.classList.contains("__show")) close(); }, { passive: true });
 
-    return { list: panel.querySelector("#__ba_list"), info: panel.querySelector("#__ba_info") };
+    // Hook de actualización rápida
+    const refreshBtn = panel.querySelector("#__ba_refresh");
+    refreshBtn.addEventListener("click", async () => {
+      if (refreshBtn.disabled) return;
+      refreshBtn.disabled = true;
+      const prev = ui.info.textContent;
+      ui.info.textContent = "Actualizando…";
+      try {
+        const rows = parseBoard();
+        const groups = rows.reduce((acc, r) => { (acc[r.carrier] ||= []).push(r); return acc; }, {});
+        await renderCarrierList(ui, groups);
+        ui.info.textContent = `${rows.length} cargas · ${Object.keys(groups).length} carriers`;
+      } finally {
+        setTimeout(() => { refreshBtn.disabled = false; }, 700);
+        setTimeout(() => { if (ui.info.textContent === "Actualizando…") ui.info.textContent = prev; }, 1200);
+      }
+    });
+
+    // La UI que devolvemos
+    const ui = { list: panel.querySelector("#__ba_list"), info: panel.querySelector("#__ba_info") };
+    return ui;
   }
 
   async function renderCarrierList(ui, groups) {
@@ -295,10 +309,7 @@
   // ============ Run ============
   (async function run(){
     const rows = parseBoard();
-    const groups = rows.reduce((acc, r) => {
-      (acc[r.carrier] ||= []).push(r);
-      return acc;
-    }, {});
+    const groups = rows.reduce((acc, r) => { (acc[r.carrier] ||= []).push(r); return acc; }, {});
     const ui = createDockUI();
     if (!ui) return;
     ui.info.textContent = `${rows.length} cargas · ${Object.keys(groups).length} carriers`;
