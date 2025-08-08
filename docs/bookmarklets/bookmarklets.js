@@ -1,5 +1,5 @@
 // ==============================
-// Configuración de bookmarklets V 2.1
+// Configuración de bookmarklets V 1.0
 // ==============================
 const BOOKMARKLETS = [
   {
@@ -69,7 +69,7 @@ function cardTemplate(item) {
 
       <div class="row" style="align-items:center;">
         <a class="btn btn-primary" id="drag-${item.key}" href="#" style="user-select:none;">${item.btn}</a>
-        <span style="font-size:12px; color:var(--muted);">⬅ Arrástrame a tu barra de marcadores</span>
+        <span style="font-size:12px; color:var(--muted);">⬅ Arrástrame</span>
         <span id="status-${item.key}" class="ok" style="margin-left:8px;"></span>
       </div>
     </section>
