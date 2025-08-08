@@ -1,4 +1,4 @@
-// Lista de bookmarklets 11
+// Lista de bookmarklets 12
 const BOOKMARKLETS = [
   {
     key: "check-code",
@@ -23,7 +23,7 @@ const BOOKMARKLETS = [
   }
 ];
 
-// Minificador seguro (solo elimina comentarios, deja espacios y saltos)
+// Minificador seguro (solo elimina comentarios)
 const MINIFY = (src) => {
   try {
     return src
@@ -35,8 +35,11 @@ const MINIFY = (src) => {
   }
 };
 
-// Envuelve el código como bookmarklet
-const asBookmarklet = (code) => "javascript:(function(){" + code + "})();";
+// Envuelve el código como bookmarklet escapando los backticks
+const asBookmarklet = (code) => {
+  const safeCode = code.replace(/`/g, "\\`");
+  return "javascript:(function(){" + safeCode + "})();";
+};
 
 const $grid = document.getElementById("grid");
 
