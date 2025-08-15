@@ -15,8 +15,7 @@
   function toTitleCase(s){
     if (!s) return "";
     const lower = s.toLowerCase().replace(/\s+/g," ").trim();
-    const parts = lower.split(/(\s+|\/|-)/
-    );
+    const parts = lower.split(/(\s+|\/|-)/);
     return parts.map((w,i)=>{
       if (!w.trim() || /\s+|\/|-/.test(w)) return w;
       if (/^(llc|l\.l\.c\.?)$/i.test(w)) return "LLC";
@@ -54,6 +53,88 @@
     }
   }
 
+  // ============ Appointment parsing ============
+  const TZ_ABBR = "(?:ACDT|ACST|ADT|AEDT|AEST|AKDT|AKST|AST|AWST|BST|CDT|CEST|CET|CST|EDT|EEST|EET|EST|GMT|HDT|HST|IST|JST|MDT|MST|NDT|NST|PDT|PET|PETT|PST|UTC|WET|WEST)";
+
+  // Tipos de entrada que soportamos:
+  //  A) "MM/DD at HH:MM - HH:MM TZ"               (ventana mismo día)
+  //  B) "MM/DD at HH:MM TZ"                       (hora única)
+  //  C) "MM/DD at HH:MM - MM/DD at HH:MM TZ"      (ventana multi-día)
+  //  D) con ruido antes (ciudad, día de semana) y saltos de línea -> normalizamos espacios
+  function parseApptWindow(raw){
+    if (!raw) return null;
+    const s = raw.replace(/\s+/g," ").trim();
+
+    // C) Rango multi-día: 08/14 at 16:00 - 08/15 at 10:00 CDT
+    let re = new RegExp(
+      `\\b(\\d{1,2})\\/(\\d{1,2})\\b[^\\d]*?(\\d{1,2}):(\\d{2})\\s*-\\s*(?:[A-Za-z]{3},\\s*)?(\\d{1,2})\\/(\\d{1,2})\\b[^\\d]*?(\\d{1,2}):(\\d{2})\\s*(${TZ_ABBR})?\\b`,
+      "i"
+    );
+    let m = s.match(re);
+    if (m){
+      const MM1 = String(Number(m[1])).padStart(2,"0");
+      const DD1 = String(Number(m[2])).padStart(2,"0");
+      const sh  = String(Number(m[3])).padStart(2,"0");
+      const sm  = String(Number(m[4])).padStart(2,"0");
+      const MM2 = String(Number(m[5])).padStart(2,"0");
+      const DD2 = String(Number(m[6])).padStart(2,"0");
+      const eh  = String(Number(m[7])).padStart(2,"0");
+      const em  = String(Number(m[8])).padStart(2,"0");
+      const tz  = (m[9]||"").toUpperCase();
+      return { mm:MM1, dd:DD1, timeStart:`${sh}${sm}`, tz, end:{ mm:MM2, dd:DD2, timeEnd:`${eh}${em}` } };
+    }
+
+    // A) Ventana mismo día: 08/15 at 07:30 - 15:00 EDT
+    re = new RegExp(
+      `\\b(\\d{1,2})\\/(\\d{1,2})\\b[^\\d]*?(\\d{1,2}):(\\d{2})\\s*-\\s*(\\d{1,2}):(\\d{2})\\s*(${TZ_ABBR})?\\b`,
+      "i"
+    );
+    m = s.match(re);
+    if (m){
+      const MM = String(Number(m[1])).padStart(2,"0");
+      const DD = String(Number(m[2])).padStart(2,"0");
+      const sh = String(Number(m[3])).padStart(2,"0");
+      const sm = String(Number(m[4])).padStart(2,"0");
+      const eh = String(Number(m[5])).padStart(2,"0");
+      const em = String(Number(m[6])).padStart(2,"0");
+      const tz = (m[7]||"").toUpperCase();
+      return { mm:MM, dd:DD, timeStart:`${sh}${sm}`, timeEnd:`${eh}${em}`, tz };
+    }
+
+    // B) Única hora: 08/15 at 07:00 CDT
+    re = new RegExp(
+      `\\b(\\d{1,2})\\/(\\d{1,2})\\b[^\\d]*?(\\d{1,2}):(\\d{2})\\s*(${TZ_ABBR})?\\b`,
+      "i"
+    );
+    m = s.match(re);
+    if (m){
+      const MM = String(Number(m[1])).padStart(2,"0");
+      const DD = String(Number(m[2])).padStart(2,"0");
+      const sh = String(Number(m[3])).padStart(2,"0");
+      const sm = String(Number(m[4])).padStart(2,"0");
+      const tz = (m[5]||"").toUpperCase();
+      return { mm:MM, dd:DD, timeStart:`${sh}${sm}`, tz };
+    }
+
+    return null;
+  }
+
+  function fmtAppt(a){
+    if (!a) return "";
+    // Multi-día
+    if (a.end && (a.end.mm !== a.mm || a.end.dd !== a.dd)) {
+      const tz = a.tz ? ` ${a.tz}` : "";
+      return `APPT ${a.mm}/${a.dd} @ ${a.timeStart} - ${a.end.mm}/${a.end.dd} @ ${a.end.timeEnd}${tz}`.trim();
+    }
+    // Mismo día con rango
+    if (a.timeEnd){
+      const tz = a.tz ? ` ${a.tz}` : "";
+      return `APPT ${a.mm}/${a.dd} @ ${a.timeStart} - ${a.timeEnd}${tz}`.trim();
+    }
+    // Única hora
+    return `APPT ${a.mm}/${a.dd} @ ${a.timeStart}${a.tz ? " "+a.tz : ""}`.trim();
+  }
+
   // ============ Dispatcher map (Value Truck) ============
   const MAP_URL = "https://script.google.com/macros/s/AKfycbw8Hntjp_caYWVjPEGdFPyjmf0LGz1f9qlaRVOnEyN7xL29_Mt0aDmgTfVY7U6cbTBHCw/exec";
   const MAP_KEY = "__dispatcherMap";
@@ -75,10 +156,7 @@
 
   // ============ Parse board ============
   function grabRows() {
-    return $$(
-      document,
-      'tr[class*="arrive_Table__tableRow"], tr.arrive_Table__tableRow'
-    );
+    return $$(document,'tr[class*="arrive_Table__tableRow"], tr.arrive_Table__tableRow');
   }
   function isRowHighRisk(row){
     return !!row.querySelector(`
@@ -92,6 +170,19 @@
       [aria-label*="High Risk"]
     `);
   }
+
+  // Selectores APPT y Trailer (según DOM que enviaste)
+  const getPUApptCell = (row) =>
+    byIdLike(row, "grid_load_pickUpDate__") ||
+    row.querySelector('[id^="grid_load_pickUpDate__"]');
+
+  const getDELApptCell = (row) =>
+    byIdLike(row, "grid_load_deliverDate__") ||
+    row.querySelector('[id^="grid_load_deliverDate__"]');
+
+  const getTrailerCell = (row) =>
+    byIdLike(row, "grid_load_trailerNumber__") ||
+    row.querySelector('[id^="grid_load_trailerNumber__"]');
 
   function parseBoard() {
     const rows = grabRows();
@@ -116,6 +207,11 @@
       let truck = txt(truckSpan);
       if (/^none$/i.test(truck)) truck = "";
 
+      const trailerCell = getTrailerCell(row);
+      const trailerSpan = trailerCell ? trailerCell.querySelector("span") : null;
+      let trailer = txt(trailerSpan) || "";
+      if (!trailer || /^none$/i.test(trailer)) trailer = "-";
+
       const phoneEl = byIdLike(row, "grid_load_driverPhone__");
       let driverPhone = normalizePhone(txt(phoneEl));
       if (!driverPhone) {
@@ -134,6 +230,12 @@
 
       const isHighRisk = isRowHighRisk(row);
 
+      // Appointments (PU/DEL)
+      const puApptRaw  = txt(getPUApptCell(row));
+      const delApptRaw = txt(getDELApptCell(row));
+      const puAppt  = parseApptWindow(puApptRaw);
+      const delAppt = parseApptWindow(delApptRaw);
+
       return {
         loadNumber,
         pickup, deliver,
@@ -141,9 +243,11 @@
         dlCity: dl.city, dlSt: dl.st,
         puStOnly: getStateAbbrev(pickup),
         dlStOnly: getStateAbbrev(deliver),
-        carrier, truck, pro,
+        carrier, truck, trailer, pro,
         driverName, driverPhone,
-        isHighRisk
+        isHighRisk,
+        puAppt,
+        delAppt
       };
     }).filter(r => r.loadNumber && r.carrier);
   }
@@ -169,33 +273,69 @@
   // ============ Formatting rules ============
   const addRisk = (line, r) => r.isHighRisk ? `${line} - HIGH RISK` : line;
 
+  // Settings de copia de appt (persisten en localStorage)
+  const APPT_SET_KEY = "__ba_apptSettings";
+  function loadApptSettings(){
+    try {
+      const s = JSON.parse(localStorage.getItem(APPT_SET_KEY) || "{}");
+      return { copyPU: !!s.copyPU, copyDEL: !!s.copyDEL };
+    } catch { return { copyPU:false, copyDEL:false }; }
+  }
+  function saveApptSettings(s){
+    try { localStorage.setItem(APPT_SET_KEY, JSON.stringify(s)); } catch{}
+  }
+
+  // Decide PU/DEL según toggles: independientes; si ambos -> concat " / "
+  function decideApptToAppend(r){
+    const { copyPU, copyDEL } = loadApptSettings();
+    const parts = [];
+    if (copyPU && r.puAppt)   parts.push(fmtAppt(r.puAppt));
+    if (copyDEL && r.delAppt) parts.push(fmtAppt(r.delAppt));
+    if (!parts.length) return null;
+    return parts.join(" / ");
+  }
+
+  function appendApptSuffix(line, r){
+    const appt = decideApptToAppend(r);
+    if (!appt) return line;
+    return `${line} - ${appt}`;
+  }
+
   async function formatLinesForCarrier(carrier, arr) {
     if (isForza(carrier)) {
       return arr.map(r => {
         const need = r.truck ? `truck# ${r.truck}` : "need DR info";
         const cityPart = [r.puCity, r.puSt].filter(Boolean).join(", ");
-        return addRisk(`L# ${r.loadNumber} - ${cityPart} - ${need}`, r);
+        let base = addRisk(`L# ${r.loadNumber} - ${cityPart} - ${need}`, r);
+        base = appendApptSuffix(base, r);
+        return base;
       });
     }
 
     if (isValueTruck(carrier)) {
-      const map = await getDispatcherMap();
+      // VALBUAZ: agrupar por dispatcher
+      const map = await getDispatcherMap(); // { truckNumber: "DispatcherName", ... }
       const groups = {};
       for (const r of arr) {
         if (!r.truck) {
-          const base = `L# ${r.loadNumber} - ${r.puStOnly} to ${r.dlStOnly} - need DR info`;
-          (groups["NEED DR INFO"] ||= []).push(addRisk(base, r));
+          let base = `L# ${r.loadNumber} - ${r.puStOnly} to ${r.dlStOnly} - need DR info`;
+          base = addRisk(base, r);
+          base = appendApptSuffix(base, r);
+          (groups["NEED DR INFO"] ||= []).push(base);
           continue;
         }
         const disp = (map[r.truck] || "UNKNOWN").toUpperCase();
-        const base = `L# ${r.loadNumber} - ${r.puStOnly} to ${r.dlStOnly} - truck# ${r.truck} - ${disp}`;
-        (groups[disp] ||= []).push(addRisk(base, r));
+        let base = `L# ${r.loadNumber} - ${r.puStOnly} to ${r.dlStOnly} - truck# ${r.truck} - ${disp}`;
+        base = addRisk(base, r);
+        base = appendApptSuffix(base, r);
+        (groups[disp] ||= []).push(base);
       }
       const keys = Object.keys(groups).sort((a,b) => {
         if (a === "NEED DR INFO") return 1;
         if (b === "NEED DR INFO") return -1;
         return a.localeCompare(b);
       });
+      // Un bloque por dispatcher separado por línea en blanco
       const chunks = keys.map(k => groups[k].join("\n"));
       return chunks.join("\n\n").split("\n");
     }
@@ -204,13 +344,17 @@
       return arr.map(r => {
         const need = r.truck ? `truck# ${r.truck}` : "need DR info";
         const proPart = r.pro ? ` - PRO: ${r.pro}` : " - NO PRO";
-        return addRisk(`L# ${r.loadNumber} - ${r.puStOnly} to ${r.dlStOnly} - ${need}${proPart}`, r);
+        let base = addRisk(`L# ${r.loadNumber} - ${r.puStOnly} to ${r.dlStOnly} - ${need}${proPart}`, r);
+        base = appendApptSuffix(base, r);
+        return base;
       });
     }
 
     return arr.map(r => {
       const need = r.truck ? `truck# ${r.truck}` : "need DR info";
-      return addRisk(`L# ${r.loadNumber} - ${r.puStOnly} to ${r.dlStOnly} - ${need}`, r);
+      let base = addRisk(`L# ${r.loadNumber} - ${r.puStOnly} to ${r.dlStOnly} - ${need}`, r);
+      base = appendApptSuffix(base, r);
+      return base;
     });
   }
 
@@ -243,7 +387,7 @@
         position:absolute; z-index:999999; margin-top:8px;
         background:#0f172a; color:#e5e7eb; border:1px solid #173154;
         border-radius:14px; box-shadow:0 18px 40px rgba(0,0,0,.45);
-        padding:12px; width:460px; max-height:70vh; overflow:auto;
+        padding:12px; width:520px; max-height:70vh; overflow:auto;
         opacity:0; transform: translateY(-4px); pointer-events:none;
         transition:opacity .15s ease, transform .15s ease;
       }
@@ -253,13 +397,16 @@
       #__ba_title  { font-weight:900; letter-spacing:.2px; }
       #__ba_info   { color:#94a3b8; margin:6px 0 10px; }
 
-      #__ba_close, #__ba_refresh {
+      #__ba_close, #__ba_refresh, #__ba_clear {
         background:#1f2937; color:#e5e7eb; border:1px solid #374151; border-radius:10px;
         padding:6px 8px; font-weight:700; cursor:pointer;
       }
       #__ba_refresh[disabled] { opacity:.6; cursor:default; }
 
-      #__ba_list { display:block; }
+      #__ba_controls { display:flex; align-items:center; gap:12px; flex-wrap:wrap; font-size:12px; color:#cbd5e1; }
+      #__ba_controls label { display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid #1f2937; border-radius:8px; background:#0b1220; }
+
+      #__ba_list { display:block; margin-top:8px; }
       .__ba_item {
         display:flex; align-items:center; justify-content:space-between;
         background:#111827; border:1px solid #1f2937; border-radius:12px;
@@ -296,8 +443,7 @@
         border:1px solid #ef4444; color:#ffe4e6; background:#7f1d1d;
       }
       #__ba_sidecar .sc-copy{
-        margin-left:auto; border:1px solid #2b3f66; background:#13203a; color:#e5e7eb;
-        border-radius:10px; padding:4px 8px; font-weight:800; cursor:pointer;
+        margin-left:auto; border:1px solid #2b3f66; background:#13203a; color:#e5e7eb; border-radius:10px; padding:4px 8px; font-weight:800; cursor:pointer;
       }
       #__ba_sidecar .sc-copy:hover{ background:#0f1a2f; }
       #__ba_sidecar .sc-muted{ color:#94a3b8; }
@@ -336,12 +482,19 @@
     panel.id = "__ba_panel";
     panel.innerHTML = `
       <div id="__ba_header">
-        <div style="display:flex; align-items:center; gap:8px;">
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
           <div id="__ba_title">Carriers</div>
           <button id="__ba_refresh" title="Actualizar lista">Actualizar</button>
+          <button id="__ba_clear"  title="Desmarcar todos">Limpiar Checks</button>
         </div>
         <button id="__ba_close">Cerrar</button>
       </div>
+
+      <div id="__ba_controls">
+        <label><input type="checkbox" id="__ba_copy_pu" /> Copy PU appt</label>
+        <label><input type="checkbox" id="__ba_copy_del" /> Copy DEL appt</label>
+      </div>
+
       <div id="__ba_info">Cargando…</div>
       <div id="__ba_list"></div>
     `;
@@ -359,7 +512,15 @@
     panel.querySelector("#__ba_close").addEventListener("click", close);
     window.addEventListener("resize", () => { if (panel.classList.contains("__show")) positionPanel(); });
     window.addEventListener("scroll", () => { if (panel.classList.contains("__show")) positionPanel(); });
-    window.addEventListener("wheel", () => { if (panel.classList.contains("__show")) close(); }, { passive: true });
+
+    // Cerrar solo si el scroll wheel sucede fuera del UI
+    window.addEventListener("wheel", (e) => {
+      if (!panel.classList.contains("__show")) return;
+      const t = e.target;
+      const insidePanel = t && (t.closest && (t.closest("#__ba_panel") || t.closest("#__ba_toggle")));
+      if (insidePanel) return;
+      close();
+    }, { passive: true });
 
     const refreshBtn = panel.querySelector("#__ba_refresh");
     refreshBtn.addEventListener("click", async () => {
@@ -374,6 +535,35 @@
         setTimeout(() => { if (ui.info.textContent === "Actualizando…") ui.info.textContent = prev; }, 1200);
       }
     });
+
+    // Limpiar checks reach-map
+    const clearBtn = panel.querySelector("#__ba_clear");
+    clearBtn.addEventListener("click", () => {
+      try { localStorage.removeItem(REACH_KEY); } catch {}
+      ui.list.querySelectorAll(".__ba_item").forEach(item => {
+        item.classList.remove("__done");
+        const chk = item.querySelector("input.__ba_chk");
+        if (chk) chk.checked = false;
+      });
+      ui.info.textContent = "♻️♻️♻️";
+      setTimeout(() => {
+        const totalCarriers = ui.list.querySelectorAll(".__ba_item").length;
+        const totalLoads = Array.from(ui.list.querySelectorAll(".__ba_item .__ba_count"))
+          .map(s => Number(s.textContent||"0"))
+          .reduce((a,b)=>a+b, 0);
+        ui.info.textContent = `${totalLoads} cargas · ${totalCarriers} carriers`;
+      }, 1200);
+    });
+
+    // Cargar/aplicar settings de APPT
+    const apptSettings = loadApptSettings();
+    const puChk  = panel.querySelector("#__ba_copy_pu");
+    const delChk = panel.querySelector("#__ba_copy_del");
+    puChk.checked  = apptSettings.copyPU;
+    delChk.checked = apptSettings.copyDEL;
+    const saveNow = () => saveApptSettings({ copyPU: puChk.checked, copyDEL: delChk.checked });
+    puChk.addEventListener("change", saveNow);
+    delChk.addEventListener("change", saveNow);
 
     const ui = { list: panel.querySelector("#__ba_list"), info: panel.querySelector("#__ba_info") };
     return ui;
@@ -413,7 +603,7 @@
         setTimeout(() => {
           const total = Object.values(groups).reduce((n,v) => n + v.length, 0);
           ui.info.textContent = `${total} cargas · ${Object.keys(groups).length} carriers`;
-        }, 1500);
+        }, 1200);
       });
 
       ui.list.appendChild(item);
@@ -485,19 +675,22 @@
         <div class="sc-row"><span class="sc-label">Driver</span><span class="sc-val sc-muted">—</span></div>
         <div class="sc-row"><span class="sc-label">Phone</span><span class="sc-val sc-muted">—</span></div>
         <div class="sc-row"><span class="sc-label">Truck</span><span class="sc-val sc-muted">—</span></div>
+        <div class="sc-row"><span class="sc-label">Trailer</span><span class="sc-val">-</span></div>
         <div class="sc-row"><span class="sc-label">Route</span><span class="sc-val sc-muted">—</span></div>
       `;
     } else {
+      const trailerDisplay = r.trailer && !/^none$/i.test(r.trailer) ? r.trailer : "-";
       sc.innerHTML = `
         ${headerHTML(r)}
         <div class="sc-row"><span class="sc-label">Carrier</span><span class="sc-val">${r.carrier || "-"}</span></div>
         <div class="sc-row"><span class="sc-label">Driver</span><span class="sc-val">${r.driverName || "-"}</span></div>
         <div class="sc-row"><span class="sc-label">Phone</span><span class="sc-val">${r.driverPhone || "-"}</span></div>
         <div class="sc-row"><span class="sc-label">Truck</span><span class="sc-val">${r.truck || "-"}</span></div>
+        <div class="sc-row"><span class="sc-label">Trailer</span><span class="sc-val">${trailerDisplay}</span></div>
         <div class="sc-row"><span class="sc-label">Route</span><span class="sc-val">${r.puStOnly} → ${r.dlStOnly}</span></div>
       `;
 
-      // Acción Copy (1 sola línea, con HIGH RISK si aplica)
+      // Copy (una sola línea)
       const copyBtn = sc.querySelector("#__ba_sc_copy");
       if (copyBtn){
         copyBtn.addEventListener("click", async (ev) => {
@@ -511,10 +704,9 @@
       }
     }
 
-    // Mostrar SIN solaparse: medir primero, posicionar, luego hacer visible
+    // Mostrar SIN solaparse
     sc.classList.add("__show");
     sc.style.visibility = "hidden";
-    // Forzar layout y posicionar antes de mostrar
     requestAnimationFrame(() => {
       positionLeftOf(modal, sc);
       requestAnimationFrame(() => {
@@ -641,3 +833,4 @@
     try { globalMO.observe(document.body, { childList:true, subtree:true }); } catch {}
   })();
 })();
+
