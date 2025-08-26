@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Board Assistant · Toolkit</title>
+  <link rel="stylesheet" href="../assets/toolkit.css" />
+  <style>
+    /* Pequeños estilos locales para el botón y layout */
+    .hero { margin: 12px 0 16px; }
+    .lead { opacity: .9; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .drag-btn{
+      display:inline-flex; align-items:center; gap:10px; user-select:none; cursor:grab;
+      background: linear-gradient(180deg, #22d3ee, #38bdf8);
+      color:#06101b; font-weight:900; letter-spacing:.25px; text-decoration:none;
+      border:1px solid #0ea5e9; border-radius:12px; padding:10px 14px;
+      box-shadow:0 14px 30px rgba(14,165,233,.35);
+    }
+    .drag-btn:active{ cursor:grabbing; transform: translateY(1px); }
+    .caret{ width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-top:7px solid currentColor; }
+    .note{ font-size:12px; color:var(--muted); }
+    .ok{ color:#78f3a2; font-size:12px; }
+    .err{ color:#ff7b7b; font-size:12px; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .input{
+      width:100%; background:#0b1220; color:#f0f0f0; border:1px solid #1b2b4a;
+      border-radius:10px; padding:10px 12px; font-weight:700; outline:none;
+    }
+    .back{ text-decoration:none; color:inherit; opacity:.85 }
+    .back:hover{ opacity:1 }
+  </style>
+</head>
+<body>
+  <header class="app">
+    <div class="header-inner">
+      <div class="row" style="justify-content:space-between; width:100%;">
+        <h1 class="h1"><span class="logo">📋</span> Board Assistant</h1>
+        <nav class="row">
+          <a class="back" href="../index.html">← Home</a>
+          <span class="note">·</span>
+          <a class="back" href="../bookmarklets/index.html">Bookmarklets</a>
+        </nav>
+      </div>
+      <div class="sub">Drag the button to your bookmarks bar and run it on the Arrive board.</div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card hero">
+      <h2 class="h2">What it does</h2>
+      <p class="lead">
+        Compact panel to copy per-carrier lines in multiple formats (lane, truck#, PU/DEL appointments, city),
+        plus a sleek sidecar with a “Copy as…” dropdown. It can also append <em>- HIGH RISK</em> when enabled.
+      </p>
+      <div class="row" style="margin-top:8px">
+        <a id="drag" class="drag-btn" href="#">
+          Board Assistant
+          <small>— drag me</small>
+          <span class="caret"></span>
+        </a>
+        <a id="copy" class="btn btn-primary" href="javascript:void(0)">Copy bookmarklet code</a>
+        <span id="status" class="note"></span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>Script path</h3>
+      <p class="note" style="margin-bottom:6px">
+        Hosted file to inject. Defaults to <code class="mono">../bookmarklets/scripts/board-assistant.js</code>.  
+        Change it if you publish a minified file or serve via CDN.
+      </p>
+      <input id="path" class="input mono" type="text" placeholder="../bookmarklets/scripts/board-assistant.js" />
+    </section>
+
+    <section class="card">
+      <h3>How to use</h3>
+      <ol>
+        <li>Drag the <strong>Board Assistant</strong> button above to your bookmarks bar.</li>
+        <li>Open the Arrive loads board and click the bookmark.</li>
+        <li>Use <em>Refresh Loads</em> if the table just paged; the sidecar re-hydrates automatically (modal fallback included).</li>
+      </ol>
+      <p class="note" style="margin-top:8px">
+        The bookmarklet injects your hosted script as <code class="mono">&lt;script type="module"&gt;</code> with a cache-buster.
+      </p>
+    </section>
+  </main>
+
+  <script>
+    // --- Same loader behavior as your bookmarklets index ---
+    function makeLoaderHref(key, absUrl) {
+      const code =
+        "var d=document,id='bm-"+key+"',old=d.getElementById(id);"
+        + "if(old) old.remove();"
+        + "var s=d.createElement('script');"
+        + "s.src='"+absUrl+(absUrl.includes('?')?'&':'?')+"v='+Date.now();"
+        + "s.id=id;"
+        + "s.type='module';"
+        + "(d.body||d.documentElement).appendChild(s);";
+      return "javascript:(function(){"+code+"})();";
+    }
+    async function isScriptNonEmpty(path) {
+      const url = path + (path.includes("?") ? "&" : "?") + "v=" + Date.now();
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const txt = await res.text();
+      return txt.trim().length > 0;
+    }
+
+    const $drag = document.getElementById('drag');
+    const $copy = document.getElementById('copy');
+    const $status = document.getElementById('status');
+    const $path = document.getElementById('path');
+
+    // Default path from this page location:
+    const DEFAULT_PATH = '../bookmarklets/scripts/board-assistant.js';
+
+    function setDisabled(reason){
+      $drag.setAttribute('href', 'javascript:void(0)');
+      $drag.style.opacity = '0.6';
+      $drag.style.cursor = 'not-allowed';
+      $status.textContent = '⚠ ' + (reason || 'Unavailable');
+      $status.className = 'err';
+    }
+    function setEnabled(href){
+      $drag.setAttribute('href', href);
+      $drag.style.opacity = '';
+      $drag.style.cursor = 'grab';
+      $status.textContent = '✓ ready — drag the button';
+      $status.className = 'ok';
+    }
+
+    async function buildBookmarklet(){
+      const rawPath = ($path.value || DEFAULT_PATH).trim();
+      try{
+        const abs = new URL(rawPath, location.href).href;
+        const ok = await isScriptNonEmpty(rawPath);
+        if(!ok){ setDisabled('Empty file'); return; }
+        const href = makeLoaderHref('board-assistant', abs);
+        setEnabled(href);
+      }catch(e){
+        setDisabled('Error loading file');
+      }
+    }
+
+    $path.addEventListener('input', buildBookmarklet);
+    $copy.addEventListener('click', async () => {
+      try{
+        await navigator.clipboard.writeText($drag.getAttribute('href') || '');
+        const t = $copy.textContent; $copy.textContent = 'Copied!'; setTimeout(()=> $copy.textContent = t, 900);
+      }catch{ alert('Copy failed — select and copy the link manually.'); }
+    });
+
+    // Init
+    (async () => {
+      $path.value = DEFAULT_PATH;
+      await buildBookmarklet();
+    })();
+  </script>
+</body>
+</html>
