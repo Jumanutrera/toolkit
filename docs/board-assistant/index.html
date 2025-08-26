@@ -3,12 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Board Assistant · Toolkit</title>
+  <title>Bassist · Board Assistant · Toolkit</title>
   <link rel="stylesheet" href="../assets/toolkit.css" />
   <style>
-    /* Minimal local styles for the drag button & layout */
+    /* Local styles to make this page more visual */
     .hero { margin: 12px 0 16px; }
     .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .lead { opacity:.92 }
+    .tagline { color: var(--ink, #f0f0f0); opacity:.9; margin-top:6px }
     .drag-btn{
       display:inline-flex; align-items:center; gap:10px; user-select:none; cursor:grab;
       background: linear-gradient(180deg, #22d3ee, #38bdf8);
@@ -21,27 +23,56 @@
     .note{ font-size:12px; color:var(--muted); }
     .ok{ color:#78f3a2; font-size:12px; }
     .err{ color:#ff7b7b; font-size:12px; }
-    .lead{ opacity:.9 }
-    /* keep the page focused on BA only (no extra nav) */
+
+    /* Visual previews */
+    .preview-grid{ display:grid; grid-template-columns: 1.2fr .8fr; gap:14px; }
+    @media (max-width: 920px){ .preview-grid{ grid-template-columns: 1fr; } }
+
+    .panel{
+      background:linear-gradient(180deg,#101a35,#0f172a 26%,#0f172a);
+      border:1px solid #1b2b4a; border-radius:14px; padding:12px; box-shadow:0 18px 40px rgba(0,0,0,.45);
+    }
+    .panel .bar{ display:flex; justify-content:flex-end; gap:8px; margin-bottom:8px; }
+    .btn-mini{
+      background:#0b1220; color:#e5e7eb; border:1px solid #1f2937; border-radius:10px; padding:6px 10px; font-weight:900; font-size:12px;
+    }
+    .panel .group{ border:1px solid #1f2937; border-radius:10px; padding:10px; background:linear-gradient(180deg,#0b1220,#0c1526); margin-top:8px; }
+    .panel .group strong{ font-size:12px; letter-spacing:.2px; }
+    .chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+    .chip{ border:1px solid #1f2937; border-radius:999px; padding:6px 10px; font-size:12px; font-weight:800; background:#0b1220; }
+
+    .sidecar{
+      background:#0b1220; border:1px solid #1b2b4a; border-radius:14px; padding:10px;
+      box-shadow:0 18px 40px rgba(0,0,0,.45);
+    }
+    .sidecar h4{ margin:0 0 6px; font-size:15px; font-weight:900; display:flex; align-items:center; gap:6px; }
+    .sc-id{ color:#fff; font-weight:900; }
+    .sc-badge{ display:inline-block; font-size:10px; padding:2px 6px; border-radius:999px; border:1px solid #ef4444; color:#ffe4e6; background:#7f1d1d; }
+    .sc-row{ display:flex; align-items:center; gap:8px; margin:6px 0; }
+    .sc-label{ font-size:11px; color:#9fb3d1; min-width:72px; text-transform:uppercase; }
+    .sc-val{ font-weight:800; color:#e6edf7; }
+    .sc-btnbar{ margin-left:auto; display:inline-flex; gap:0; }
+    .sc-copy, .sc-dd{ border:1px solid #2b3f66; background:#13203a; color:#e5e7eb; font-weight:900; padding:6px 10px; font-size:12px; }
+    .sc-copy{ border-radius:10px 0 0 10px; }
+    .sc-dd{ border-left:0; border-radius:0 10px 10px 0; }
+
+    footer.credits{ text-align:center; color:#a7b6d6; margin-top:18px; font-size:13px; opacity:.9 }
   </style>
 </head>
 <body>
   <header class="app">
     <div class="header-inner">
-      <h1 class="h1"><span class="logo">📋</span> Board Assistant</h1>
-      <div class="sub">Drag this button to your bookmarks bar and run it on the Arrive Tracking Board.</div>
+      <h1 class="h1"><span class="logo">🎸</span> Bassist</h1>
+      <div class="sub tagline">
+        Bassist is your <strong>Board Assistant</strong>: a fast, minimal tool to riff through the Tracking Board — copy clean lines per carrier, manage formats on the fly, and keep a handy sidecar next to each load. It’s called “Bassist” because it keeps the groove: simple, reliable, and always on time.
+      </div>
     </div>
   </header>
 
   <main class="container">
     <section class="card hero">
-      <h2 class="h2">What it does</h2>
-      <p class="lead">
-        A compact assistant for the Arrive <strong>Tracking Board</strong>. It lets you copy per-carrier lines in several formats
-        (lane, truck#, PU/DEL appointments, city) and shows a sleek sidecar next to the load modal with a clean “Copy as…” dropdown.
-        You can optionally append <em>- HIGH RISK</em> to any format.
-      </p>
-      <div class="row" style="margin-top:8px">
+      <h2 class="h2">Get the bookmarklet</h2>
+      <div class="row" style="margin-top:6px">
         <a id="drag" class="drag-btn" href="#">
           Bassist
           <span class="caret"></span>
@@ -52,35 +83,87 @@
     </section>
 
     <section class="card">
-      <h3>How it works</h3>
+      <h2 class="h2">UI preview</h2>
+      <div class="preview-grid">
+        <!-- Panel preview -->
+        <div class="panel">
+          <div class="bar">
+            <span class="btn-mini">Refresh Loads</span>
+            <span class="btn-mini">Clear Checks</span>
+            <span class="btn-mini">Close</span>
+          </div>
+          <div class="group">
+            <strong>Copy format</strong>
+            <div class="chips">
+              <span class="chip">L# – ST to ST</span>
+              <span class="chip">L# – ST to ST – truck#</span>
+              <span class="chip">L# – ST to ST – truck# – APPT</span>
+              <span class="chip">L# – ST to ST – APPT</span>
+              <span class="chip">L# – Pick Up / Delivery city</span>
+              <span class="chip">Email: LOAD // ST to ST //</span>
+            </div>
+          </div>
+          <div class="group">
+            <strong>Appointment source</strong>
+            <div class="chips">
+              <span class="chip">Pickup (PU)</span>
+              <span class="chip">Delivery (DEL)</span>
+            </div>
+          </div>
+          <div class="group">
+            <strong>City used in format</strong>
+            <div class="chips">
+              <span class="chip">Pick Up city</span>
+              <span class="chip">Delivery city</span>
+            </div>
+          </div>
+          <div class="group">
+            <div class="chips">
+              <span class="chip">Include “- HIGH RISK”</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sidecar preview -->
+        <div class="sidecar">
+          <h4>
+            <span class="sc-id">L# 7464440</span>
+            <span class="sc-badge">HIGH RISK</span>
+            <span class="sc-btnbar" style="margin-left:auto">
+              <span class="sc-copy">Copy</span><span class="sc-dd">▾</span>
+            </span>
+          </h4>
+          <div class="sc-row"><span class="sc-label">Carrier</span><span class="sc-val">Ruby Transport Inc.</span></div>
+          <div class="sc-row"><span class="sc-label">Driver</span><span class="sc-val">Juan and Juan</span></div>
+          <div class="sc-row"><span class="sc-label">Phone</span><span class="sc-val">(555) 555-1234</span></div>
+          <div class="sc-row"><span class="sc-label">Truck</span><span class="sc-val">R093</span></div>
+          <div class="sc-row"><span class="sc-label">Route</span><span class="sc-val">NY → TX</span></div>
+          <div class="note" style="margin-top:6px">Dropdown opens under “Copy” with all formats (PU/DEL variants included).</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 class="h2">How it works</h2>
       <ul>
         <li><strong>Where it runs</strong>: Only on the Arrive <em>Tracking Board</em> (the loads table page).</li>
-        <li><strong>Scope</strong>: It indexes and displays <em>only the loads visible on the current page</em>.
-          If you change page, filters, or sorting, use <em>Refresh Loads</em> to re-index.</li>
-        <li><strong>Panel</strong>: A dock button appears near “Save Search”. The panel includes
-          <em>Refresh Loads</em>, <em>Clear Checks</em>, and <em>Close</em>, and copy options:
-          <ul>
-            <li>Formats: lane only; lane + truck#; lane + truck# + APPT; APPT only; “Pick Up / Delivery city”; email style.</li>
-            <li>Appointment source selector (PU / DEL) and “City used in format” (Pick Up / Delivery).</li>
-            <li>Option to include <code>- HIGH RISK</code> at the end of the line.</li>
-            <li>Format changes apply instantly when copying (no need to refresh loads just to switch formats).</li>
-          </ul>
-        </li>
-        <li><strong>Copying</strong>: Click a carrier in the list to copy all its lines based on your current settings.</li>
-        <li><strong>Sidecar</strong>: When a load modal is open, a sidecard appears at its left with a <em>Copy</em> button
-          and a dropdown to “Copy as…” alternate formats (with PU/DEL variants). The dropdown opens right under the Copy button.</li>
-        <li><strong>Resilience</strong>: If the modal is open but the load row isn’t on the current page yet, the sidecar can
-          read data from the modal as a fallback. Hitting <em>Refresh Loads</em> re-hydrates the sidecar so it stays in sync.</li>
-        <li><strong>UX</strong>: The panel closes when you click outside. Your preferences (format, PU/DEL, city, HIGH RISK)
-          are saved locally and reused next time.</li>
+        <li><strong>Scope</strong>: It reads <em>only the loads visible on the current page</em>. If you change page, filters, or sorting, hit <em>Refresh Loads</em> to re-index.</li>
+        <li><strong>Copy</strong>: Click a carrier to copy all its lines using your selected format and options. Toggle “Include - HIGH RISK” to add the suffix when the load is HRHV.</li>
+        <li><strong>Appointments</strong>: Choose PU or DEL for the appointment source; APPT-only and truck#+APPT formats adapt accordingly.</li>
+        <li><strong>City lines</strong>: Pick which side to use (Pick Up or Delivery) for the “City” format.</li>
+        <li><strong>Sidecar</strong>: When a load modal is open, a sidecar appears to its left with <em>Copy</em> and a <em>Copy as…</em> dropdown. If the row isn’t on the current page yet, the sidecar can read directly from the modal as a fallback.</li>
+        <li><strong>Resilience</strong>: Using <em>Refresh Loads</em> re-hydrates the sidecar and ensures data stays in sync after pagination or slow DOM loads.</li>
+        <li><strong>Comfort</strong>: The panel closes when clicking outside, and your preferences (format, PU/DEL, city, HIGH RISK) are saved locally.</li>
       </ul>
-      <p class="note" style="margin-top:8px">
-        The bookmarklet injects a module script into the page with a cache-buster to always load the latest version.
-      </p>
     </section>
+
+    <footer class="credits">
+      made with ❤️ · working on improvements · not perfect — may fail in some cases
+    </footer>
   </main>
 
   <script>
+    /* Bookmarklet loader (same pattern as your bookmarklets index) */
     function makeLoaderHref(key, absUrl) {
       const code =
         "var d=document,id='bm-"+key+"',old=d.getElementById(id);" +
@@ -133,4 +216,5 @@
   </script>
 </body>
 </html>
+
 
