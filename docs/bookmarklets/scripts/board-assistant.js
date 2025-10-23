@@ -1,3 +1,4 @@
+// ============ BASSIST v4.0 ============
 (() => {
   // ============ Utils ============
   const $$  = (root, sel) => Array.from(root.querySelectorAll(sel));
@@ -11,7 +12,7 @@
   const isValueTruck = (s) => norm(s).includes("value truck of az");
   const isRich       = (s) => norm(s).includes("rich logistics");
 
-  // Title Case para nombres y carriers
+  // Title Case con reglas para LLC/Inc y palabras menores
   function toTitleCase(s){
     if (!s) return "";
     const lower = s.toLowerCase().replace(/\s+/g," ").trim();
@@ -24,6 +25,12 @@
       return w.replace(/^\p{L}/u, c=>c.toUpperCase());
     }).join("");
   }
+
+  // Quita sufijo entre paréntesis al final: "ACME (LOGIFLOW)" -> "ACME"
+  function stripParenSuffix(s){
+    return (s || "").replace(/\s*\([^)]*\)\s*$/,"").trim();
+  }
+
   function normalizePhone(s){
     if (!s) return "";
     const digits = (s.match(/\d/g)||[]).join("");
@@ -37,6 +44,7 @@
     const m = s.match(/,\s*([A-Za-z]{2})\b/);
     return m ? m[1].toUpperCase() : s.trim().toUpperCase();
   };
+
   const getCityState = (s) => {
     if (!s) return { city: "", st: "" };
     const m = s.match(/^\s*([^,]+)\s*,\s*([A-Za-z]{2})\b/);
@@ -44,6 +52,7 @@
       ? { city: toTitleCase(m[1].trim()), st: m[2].toUpperCase() }
       : { city: toTitleCase(s.trim()), st: "" };
   };
+
   async function copyText(s) {
     try { await navigator.clipboard.writeText(s); }
     catch {
@@ -56,16 +65,11 @@
   // ============ Appointment parsing ============
   const TZ_ABBR = "(?:ACDT|ACST|ADT|AEDT|AEST|AKDT|AKST|AST|AWST|BST|CDT|CEST|CET|CST|EDT|EEST|EET|EST|GMT|HDT|HST|IST|JST|MDT|MST|NDT|NST|PDT|PET|PETT|PST|UTC|WET|WEST)";
 
-  // Tipos de entrada que soportamos:
-  //  A) "MM/DD at HH:MM - HH:MM TZ"               (ventana mismo día)
-  //  B) "MM/DD at HH:MM TZ"                       (hora única)
-  //  C) "MM/DD at HH:MM - MM/DD at HH:MM TZ"      (ventana multi-día)
-  //  D) con ruido antes (ciudad, día de semana) y saltos de línea -> normalizamos espacios
   function parseApptWindow(raw){
     if (!raw) return null;
     const s = raw.replace(/\s+/g," ").trim();
 
-    // C) Rango multi-día: 08/14 at 16:00 - 08/15 at 10:00 CDT
+    // multi-día
     let re = new RegExp(
       `\\b(\\d{1,2})\\/(\\d{1,2})\\b[^\\d]*?(\\d{1,2}):(\\d{2})\\s*-\\s*(?:[A-Za-z]{3},\\s*)?(\\d{1,2})\\/(\\d{1,2})\\b[^\\d]*?(\\d{1,2}):(\\d{2})\\s*(${TZ_ABBR})?\\b`,
       "i"
@@ -84,7 +88,7 @@
       return { mm:MM1, dd:DD1, timeStart:`${sh}${sm}`, tz, end:{ mm:MM2, dd:DD2, timeEnd:`${eh}${em}` } };
     }
 
-    // A) Ventana mismo día: 08/15 at 07:30 - 15:00 EDT
+    // mismo día
     re = new RegExp(
       `\\b(\\d{1,2})\\/(\\d{1,2})\\b[^\\d]*?(\\d{1,2}):(\\d{2})\\s*-\\s*(\\d{1,2}):(\\d{2})\\s*(${TZ_ABBR})?\\b`,
       "i"
@@ -101,7 +105,7 @@
       return { mm:MM, dd:DD, timeStart:`${sh}${sm}`, timeEnd:`${eh}${em}`, tz };
     }
 
-    // B) Única hora: 08/15 at 07:00 CDT
+    // única hora
     re = new RegExp(
       `\\b(\\d{1,2})\\/(\\d{1,2})\\b[^\\d]*?(\\d{1,2}):(\\d{2})\\s*(${TZ_ABBR})?\\b`,
       "i"
@@ -115,23 +119,19 @@
       const tz = (m[5]||"").toUpperCase();
       return { mm:MM, dd:DD, timeStart:`${sh}${sm}`, tz };
     }
-
     return null;
   }
 
   function fmtAppt(a){
     if (!a) return "";
-    // Multi-día
     if (a.end && (a.end.mm !== a.mm || a.end.dd !== a.dd)) {
       const tz = a.tz ? ` ${a.tz}` : "";
       return `APPT ${a.mm}/${a.dd} @ ${a.timeStart} - ${a.end.mm}/${a.end.dd} @ ${a.end.timeEnd}${tz}`.trim();
     }
-    // Mismo día con rango
     if (a.timeEnd){
       const tz = a.tz ? ` ${a.tz}` : "";
       return `APPT ${a.mm}/${a.dd} @ ${a.timeStart} - ${a.timeEnd}${tz}`.trim();
     }
-    // Única hora
     return `APPT ${a.mm}/${a.dd} @ ${a.timeStart}${a.tz ? " "+a.tz : ""}`.trim();
   }
 
@@ -140,6 +140,7 @@
   const MAP_KEY = "__dispatcherMap";
   const MAP_TS  = "__dispatcherMapTS";
   const DAY     = 86400000;
+
   async function getDispatcherMap() {
     const now = Date.now();
     try {
@@ -158,20 +159,39 @@
   function grabRows() {
     return $$(document,'tr[class*="arrive_Table__tableRow"], tr.arrive_Table__tableRow');
   }
+
+  // HIGH RISK: rojo/morado (excluye azul)
   function isRowHighRisk(row){
-    return !!row.querySelector(`
-      [class*="hrHv"],
-      [class*="HRHV"],
-      svg[class*="diamondIconHighRisk"],
-      svg[class*="diamondiconhighrisk"],
-      svg[class*="diamondIconHrHv"],
-      svg[class*="diamondiconhrhv"],
-      [data-testid*="hrhv"],
-      [aria-label*="High Risk"]
-    `);
+    const hasRed    = !!row.querySelector('[class*="diamondIconHighRisk"]');
+    const hasPurple = !!row.querySelector('[class*="diamondIconHrHv"]');
+    const hasBlue   = !!row.querySelector('[class*="diamondIconHighValue"]');
+    const labeled   = !!row.querySelector('[aria-label*="High Risk" i], [data-testid*="hrhv" i], [data-testid*="highrisk" i]');
+    return (hasRed || hasPurple || labeled) && !hasBlue;
   }
 
-  // Selectores APPT y Trailer (según DOM que enviaste)
+  // === Customer (board) ===
+  function getCustomerNameFromRow(row){
+    const candidates = [
+      '[id^="grid_load_customerName__"]',
+      '[id^="grid_load_customer__"]',
+      '[id^="grid_load_customerCode__"]',
+      '[id*="customerName"]',
+      '[id*="customer"]'
+    ];
+    let raw = "";
+    for (const sel of candidates){
+      const el = row.querySelector(sel);
+      const t = txt(el);
+      if (t) { raw = t; break; }
+    }
+    // Quitar sufijo entre paréntesis y pasar a Title Case
+    let val = stripParenSuffix(raw);
+    // Evitar tomar códigos cortos como nombre (p.ej., HD001)
+    if (/^[A-Z0-9\-]{1,6}$/.test(val)) val = "";
+    return toTitleCase(val || "");
+  }
+
+  // Selectores APPT y Trailer
   const getPUApptCell = (row) =>
     byIdLike(row, "grid_load_pickUpDate__") ||
     row.querySelector('[id^="grid_load_pickUpDate__"]');
@@ -222,9 +242,10 @@
       const pu = getCityState(pickup);
       const dl = getCityState(deliver);
 
+      // PRO para Rich: 7+ dígitos dentro del driverName (heurística)
       let pro = null;
       if (isRich(carrier)) {
-        const m = (driverName || "").match(/\b(\d{7})\b/);
+        const m = (driverName || "").match(/\b(\d{7,})\b/);
         pro = m ? m[1] : null;
       }
 
@@ -235,6 +256,8 @@
       const delApptRaw = txt(getDELApptCell(row));
       const puAppt  = parseApptWindow(puApptRaw);
       const delAppt = parseApptWindow(delApptRaw);
+
+      const customerName = getCustomerNameFromRow(row);
 
       return {
         loadNumber,
@@ -247,7 +270,8 @@
         driverName, driverPhone,
         isHighRisk,
         puAppt,
-        delAppt
+        delAppt,
+        customerName
       };
     }).filter(r => r.loadNumber && r.carrier);
   }
@@ -273,8 +297,10 @@
   // ============ Formatting rules ============
   const addRisk = (line, r) => r.isHighRisk ? `${line} - HIGH RISK` : line;
 
-  // Settings de copia de appt (persisten en localStorage)
-  const APPT_SET_KEY = "__ba_apptSettings";
+  // Settings (persistencia)
+  const APPT_SET_KEY   = "__ba_apptSettings";
+  const RICH_SHEET_KEY = "__ba_richSheet";
+
   function loadApptSettings(){
     try {
       const s = JSON.parse(localStorage.getItem(APPT_SET_KEY) || "{}");
@@ -285,7 +311,14 @@
     try { localStorage.setItem(APPT_SET_KEY, JSON.stringify(s)); } catch{}
   }
 
-  // Decide PU/DEL según toggles: independientes; si ambos -> concat " / "
+  function loadRichSheetSetting(){
+    try { return !!JSON.parse(localStorage.getItem(RICH_SHEET_KEY) || "false"); }
+    catch { return false; }
+  }
+  function saveRichSheetSetting(v){
+    try { localStorage.setItem(RICH_SHEET_KEY, JSON.stringify(!!v)); } catch {}
+  }
+
   function decideApptToAppend(r){
     const { copyPU, copyDEL } = loadApptSettings();
     const parts = [];
@@ -302,6 +335,7 @@
   }
 
   async function formatLinesForCarrier(carrier, arr) {
+    // Forza
     if (isForza(carrier)) {
       return arr.map(r => {
         const need = r.truck ? `truck# ${r.truck}` : "need DR info";
@@ -312,9 +346,9 @@
       });
     }
 
+    // Value Truck
     if (isValueTruck(carrier)) {
-      // VALBUAZ: agrupar por dispatcher
-      const map = await getDispatcherMap(); // { truckNumber: "DispatcherName", ... }
+      const map = await getDispatcherMap();
       const groups = {};
       for (const r of arr) {
         if (!r.truck) {
@@ -335,21 +369,34 @@
         if (b === "NEED DR INFO") return -1;
         return a.localeCompare(b);
       });
-      // Un bloque por dispatcher separado por línea en blanco
       const chunks = keys.map(k => groups[k].join("\n"));
       return chunks.join("\n\n").split("\n");
     }
 
+    // Rich Logistics
     if (isRich(carrier)) {
-      return arr.map(r => {
-        const need = r.truck ? `truck# ${r.truck}` : "need DR info";
-        const proPart = r.pro ? ` - PRO: ${r.pro}` : " - NO PRO";
-        let base = addRisk(`L# ${r.loadNumber} - ${r.puStOnly} to ${r.dlStOnly} - ${need}${proPart}`, r);
-        base = appendApptSuffix(base, r);
-        return base;
-      });
+      const sheetMode = loadRichSheetSetting();
+      if (sheetMode) {
+        // SOLO números (L# y PRO) TAB-separados, cada carga una fila
+        return arr.map(r => {
+          const l = String(r.loadNumber || "").replace(/\D+/g,"");
+          const p = String(r.pro || "").replace(/\D+/g,"");
+          return `${l}\t${p}`;
+        });
+      } else {
+        // Copy normal, con customer en Title Case (sin paréntesis)
+        return arr.map(r => {
+          const need = r.truck ? `truck# ${r.truck}` : "need DR info";
+          const proPart = r.pro ? ` - PRO: ${r.pro}` : " - NO PRO";
+          const cust = r.customerName ? ` - ${r.customerName}` : "";
+          let base = addRisk(`L# ${r.loadNumber} - ${r.puStOnly} to ${r.dlStOnly} - ${need}${proPart}${cust}`, r);
+          base = appendApptSuffix(base, r);
+          return base;
+        });
+      }
     }
 
+    // Default
     return arr.map(r => {
       const need = r.truck ? `truck# ${r.truck}` : "need DR info";
       let base = addRisk(`L# ${r.loadNumber} - ${r.puStOnly} to ${r.dlStOnly} - ${need}`, r);
@@ -387,7 +434,7 @@
         position:absolute; z-index:999999; margin-top:8px;
         background:#0f172a; color:#e5e7eb; border:1px solid #173154;
         border-radius:14px; box-shadow:0 18px 40px rgba(0,0,0,.45);
-        padding:12px; width:520px; max-height:70vh; overflow:auto;
+        padding:12px; width:540px; max-height:70vh; overflow:auto;
         opacity:0; transform: translateY(-4px); pointer-events:none;
         transition:opacity .15s ease, transform .15s ease;
       }
@@ -493,6 +540,7 @@
       <div id="__ba_controls">
         <label><input type="checkbox" id="__ba_copy_pu" /> Copy PU appt</label>
         <label><input type="checkbox" id="__ba_copy_del" /> Copy DEL appt</label>
+        <label><input type="checkbox" id="__ba_rich_sheet" /> Rich: Sheet L/PRO</label>
       </div>
 
       <div id="__ba_info">Cargando…</div>
@@ -513,7 +561,7 @@
     window.addEventListener("resize", () => { if (panel.classList.contains("__show")) positionPanel(); });
     window.addEventListener("scroll", () => { if (panel.classList.contains("__show")) positionPanel(); });
 
-    // Cerrar solo si el scroll wheel sucede fuera del UI
+    // Cerrar si el wheel sucede fuera del UI
     window.addEventListener("wheel", (e) => {
       if (!panel.classList.contains("__show")) return;
       const t = e.target;
@@ -523,6 +571,8 @@
     }, { passive: true });
 
     const refreshBtn = panel.querySelector("#__ba_refresh");
+    const ui = { list: panel.querySelector("#__ba_list"), info: panel.querySelector("#__ba_info") };
+
     refreshBtn.addEventListener("click", async () => {
       if (refreshBtn.disabled) return;
       refreshBtn.disabled = true;
@@ -555,17 +605,21 @@
       }, 1200);
     });
 
-    // Cargar/aplicar settings de APPT
+    // Cargar/aplicar settings
     const apptSettings = loadApptSettings();
     const puChk  = panel.querySelector("#__ba_copy_pu");
     const delChk = panel.querySelector("#__ba_copy_del");
     puChk.checked  = apptSettings.copyPU;
     delChk.checked = apptSettings.copyDEL;
-    const saveNow = () => saveApptSettings({ copyPU: puChk.checked, copyDEL: delChk.checked });
-    puChk.addEventListener("change", saveNow);
-    delChk.addEventListener("change", saveNow);
+    const saveApptNow = () => saveApptSettings({ copyPU: puChk.checked, copyDEL: delChk.checked });
+    puChk.addEventListener("change", saveApptNow);
+    delChk.addEventListener("change", saveApptNow);
 
-    const ui = { list: panel.querySelector("#__ba_list"), info: panel.querySelector("#__ba_info") };
+    // Rich sheet toggle
+    const richSheetChk = panel.querySelector("#__ba_rich_sheet");
+    richSheetChk.checked = loadRichSheetSetting();
+    richSheetChk.addEventListener("change", () => saveRichSheetSetting(richSheetChk.checked));
+
     return ui;
   }
 
@@ -598,7 +652,7 @@
 
       item.addEventListener("click", async () => {
         const lines = await formatLinesForCarrier(carrier, arr);
-        await copyText(Array.isArray(lines) ? lines.join("\n") : lines.join("\n"));
+        await copyText(Array.isArray(lines) ? lines.join("\n") : String(lines));
         ui.info.textContent = `✓ Copiado ${arr.length} líneas de ${carrier}`;
         setTimeout(() => {
           const total = Object.values(groups).reduce((n,v) => n + v.length, 0);
@@ -662,7 +716,6 @@
     }
     const r = LOAD_INDEX.get(String(loadNum).trim());
 
-    // Cabecera con badge y botón Copy
     function headerHTML(row){
       const badge = row?.isHighRisk ? `<span class="sc-badge">HIGH RISK</span>` : "";
       return `<h4>Load #${row ? row.loadNumber : loadNum} ${badge}<button class="sc-copy" id="__ba_sc_copy">Copy</button></h4>`;
@@ -704,7 +757,6 @@
       }
     }
 
-    // Mostrar SIN solaparse
     sc.classList.add("__show");
     sc.style.visibility = "hidden";
     requestAnimationFrame(() => {
@@ -816,6 +868,7 @@
   }
 
   // ============ Resiliencia SPA ============
+  let ui = null;
   function ensureUI(){
     if (!ui || !document.getElementById("__ba_panel")) {
       ui = createDockUI();
@@ -823,7 +876,6 @@
   }
 
   // ============ Run ============
-  let ui = null;
   (async function run(){
     ensureUI();
     await refreshBoard();
@@ -833,4 +885,3 @@
     try { globalMO.observe(document.body, { childList:true, subtree:true }); } catch {}
   })();
 })();
-
