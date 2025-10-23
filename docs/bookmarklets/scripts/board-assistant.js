@@ -540,7 +540,7 @@
       <div id="__ba_controls">
         <label><input type="checkbox" id="__ba_copy_pu" /> Copy PU appt</label>
         <label><input type="checkbox" id="__ba_copy_del" /> Copy DEL appt</label>
-        <label><input type="checkbox" id="__ba_rich_sheet" /> Rich: Sheet L/PRO</label>
+        <label><input type="checkbox" id="__ba_rich_sheet" /> Rich: Tracking Sheet</label>
       </div>
 
       <div id="__ba_info">Cargando…</div>
