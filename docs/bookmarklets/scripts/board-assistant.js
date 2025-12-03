@@ -1,4 +1,4 @@
-// ============ BASSIST v4.0 ============
+// ============ BASSIST v5.0 ============
 (() => {
   // ============ Utils ============
   const $$  = (root, sel) => Array.from(root.querySelectorAll(sel));
@@ -10,9 +10,17 @@
 
   const isForza      = (s) => norm(s).includes("forza");
   const isValueTruck = (s) => norm(s).includes("value truck of az");
-  const isRich       = (s) => norm(s).includes("rich logistics");
 
-  // Title Case con reglas para LLC/Inc y palabras menores
+  const isRich = (s) => {
+    const n = norm(s);
+    const compact = n.replace(/[^a-z0-9]/g, ""); 
+    return (
+      compact.includes("richlogistics") || 
+      compact.includes("catinc")        || 
+      compact.includes("catcoqc")          
+    );
+  };
+
   function toTitleCase(s){
     if (!s) return "";
     const lower = s.toLowerCase().replace(/\s+/g," ").trim();
@@ -26,7 +34,6 @@
     }).join("");
   }
 
-  // Quita sufijo entre paréntesis al final: "ACME (LOGIFLOW)" -> "ACME"
   function stripParenSuffix(s){
     return (s || "").replace(/\s*\([^)]*\)\s*$/,"").trim();
   }
@@ -62,14 +69,13 @@
     }
   }
 
-  // ============ Appointment parsing ============
+  // ============ Appointment  ============
   const TZ_ABBR = "(?:ACDT|ACST|ADT|AEDT|AEST|AKDT|AKST|AST|AWST|BST|CDT|CEST|CET|CST|EDT|EEST|EET|EST|GMT|HDT|HST|IST|JST|MDT|MST|NDT|NST|PDT|PET|PETT|PST|UTC|WET|WEST)";
 
   function parseApptWindow(raw){
     if (!raw) return null;
     const s = raw.replace(/\s+/g," ").trim();
 
-    // multi-día
     let re = new RegExp(
       `\\b(\\d{1,2})\\/(\\d{1,2})\\b[^\\d]*?(\\d{1,2}):(\\d{2})\\s*-\\s*(?:[A-Za-z]{3},\\s*)?(\\d{1,2})\\/(\\d{1,2})\\b[^\\d]*?(\\d{1,2}):(\\d{2})\\s*(${TZ_ABBR})?\\b`,
       "i"
@@ -88,9 +94,8 @@
       return { mm:MM1, dd:DD1, timeStart:`${sh}${sm}`, tz, end:{ mm:MM2, dd:DD2, timeEnd:`${eh}${em}` } };
     }
 
-    // mismo día
     re = new RegExp(
-      `\\b(\\d{1,2})\\/(\\d{1,2})\\b[^\\d]*?(\\d{1,2}):(\\d{2})\\s*-\\s*(\\d{1,2}):(\\d{2})\\s*(${TZ_ABBR})?\\b`,
+      `\\b(\\d{1,2})\\/(\\d{1,2})\\b[^\\d]*?(\\d{1,2})\\:(\\d{2})\\s*-\\s*(\\d{1,2})\\:(\\d{2})\\s*(${TZ_ABBR})?\\b`,
       "i"
     );
     m = s.match(re);
@@ -105,9 +110,8 @@
       return { mm:MM, dd:DD, timeStart:`${sh}${sm}`, timeEnd:`${eh}${em}`, tz };
     }
 
-    // única hora
     re = new RegExp(
-      `\\b(\\d{1,2})\\/(\\d{1,2})\\b[^\\d]*?(\\d{1,2}):(\\d{2})\\s*(${TZ_ABBR})?\\b`,
+      `\\b(\\d{1,2})\\/(\\d{1,2})\\b[^\\d]*?(\\d{1,2})\\:(\\d{2})\\s*(${TZ_ABBR})?\\b`,
       "i"
     );
     m = s.match(re);
@@ -135,7 +139,7 @@
     return `APPT ${a.mm}/${a.dd} @ ${a.timeStart}${a.tz ? " "+a.tz : ""}`.trim();
   }
 
-  // ============ Dispatcher map (Value Truck) ============
+  // ============ Dispatcher map (Value) ============
   const MAP_URL = "https://script.google.com/macros/s/AKfycbw8Hntjp_caYWVjPEGdFPyjmf0LGz1f9qlaRVOnEyN7xL29_Mt0aDmgTfVY7U6cbTBHCw/exec";
   const MAP_KEY = "__dispatcherMap";
   const MAP_TS  = "__dispatcherMapTS";
@@ -155,12 +159,12 @@
     } catch { return {}; }
   }
 
-  // ============ Parse board ============
+  // ============ Parse  ============
   function grabRows() {
     return $$(document,'tr[class*="arrive_Table__tableRow"], tr.arrive_Table__tableRow');
   }
 
-  // HIGH RISK: rojo/morado (excluye azul)
+  // HIGH RISK
   function isRowHighRisk(row){
     const hasRed    = !!row.querySelector('[class*="diamondIconHighRisk"]');
     const hasPurple = !!row.querySelector('[class*="diamondIconHrHv"]');
@@ -169,7 +173,7 @@
     return (hasRed || hasPurple || labeled) && !hasBlue;
   }
 
-  // === Customer (board) ===
+  // === Customer ===
   function getCustomerNameFromRow(row){
     const candidates = [
       '[id^="grid_load_customerName__"]',
@@ -184,14 +188,13 @@
       const t = txt(el);
       if (t) { raw = t; break; }
     }
-    // Quitar sufijo entre paréntesis y pasar a Title Case
     let val = stripParenSuffix(raw);
-    // Evitar tomar códigos cortos como nombre (p.ej., HD001)
+
     if (/^[A-Z0-9\-]{1,6}$/.test(val)) val = "";
     return toTitleCase(val || "");
   }
 
-  // Selectores APPT y Trailer
+  // Selec
   const getPUApptCell = (row) =>
     byIdLike(row, "grid_load_pickUpDate__") ||
     row.querySelector('[id^="grid_load_pickUpDate__"]');
@@ -242,7 +245,7 @@
       const pu = getCityState(pickup);
       const dl = getCityState(deliver);
 
-      // PRO para Rich: 7+ dígitos dentro del driverName (heurística)
+      // PRO para Rich
       let pro = null;
       if (isRich(carrier)) {
         const m = (driverName || "").match(/\b(\d{7,})\b/);
@@ -251,7 +254,7 @@
 
       const isHighRisk = isRowHighRisk(row);
 
-      // Appointments (PU/DEL)
+      // Appointments
       const puApptRaw  = txt(getPUApptCell(row));
       const delApptRaw = txt(getDELApptCell(row));
       const puAppt  = parseApptWindow(puApptRaw);
@@ -294,10 +297,10 @@
     }
   }
 
-  // ============ Formatting rules ============
+  // ============ Formatting  ============
   const addRisk = (line, r) => r.isHighRisk ? `${line} - HIGH RISK` : line;
 
-  // Settings (persistencia)
+  // Settings
   const APPT_SET_KEY   = "__ba_apptSettings";
   const RICH_SHEET_KEY = "__ba_richSheet";
 
@@ -346,7 +349,7 @@
       });
     }
 
-    // Value Truck
+    // Value 
     if (isValueTruck(carrier)) {
       const map = await getDispatcherMap();
       const groups = {};
@@ -370,21 +373,19 @@
         return a.localeCompare(b);
       });
       const chunks = keys.map(k => groups[k].join("\n"));
-      return chunks.join("\n\n").split("\n");
+      return chunks.join("\n").split("\n");
     }
 
-    // Rich Logistics
+    // Rich Logistics + C.A.T, Inc. 
     if (isRich(carrier)) {
       const sheetMode = loadRichSheetSetting();
       if (sheetMode) {
-        // SOLO números (L# y PRO) TAB-separados, cada carga una fila
         return arr.map(r => {
           const l = String(r.loadNumber || "").replace(/\D+/g,"");
           const p = String(r.pro || "").replace(/\D+/g,"");
           return `${l}\t${p}`;
         });
       } else {
-        // Copy normal, con customer en Title Case (sin paréntesis)
         return arr.map(r => {
           const need = r.truck ? `truck# ${r.truck}` : "need DR info";
           const proPart = r.pro ? ` - PRO: ${r.pro}` : " - NO PRO";
@@ -396,7 +397,7 @@
       }
     }
 
-    // Default
+    
     return arr.map(r => {
       const need = r.truck ? `truck# ${r.truck}` : "need DR info";
       let base = addRisk(`L# ${r.loadNumber} - ${r.puStOnly} to ${r.dlStOnly} - ${need}`, r);
@@ -405,7 +406,6 @@
     });
   }
 
-  // ============ Reach-out store ============
   const REACH_KEY = "__ba_reachMap";
   function loadReachMap(){
     try { return JSON.parse(localStorage.getItem(REACH_KEY) || "{}"); }
@@ -415,7 +415,7 @@
     try { localStorage.setItem(REACH_KEY, JSON.stringify(map)); } catch {}
   }
 
-  // ============ UI (junto a "Save Search") ============
+  // ============ UI ============
   function injectStylesOnce() {
     const ID = "__ba_styles";
     if (document.getElementById(ID)) return;
@@ -561,7 +561,6 @@
     window.addEventListener("resize", () => { if (panel.classList.contains("__show")) positionPanel(); });
     window.addEventListener("scroll", () => { if (panel.classList.contains("__show")) positionPanel(); });
 
-    // Cerrar si el wheel sucede fuera del UI
     window.addEventListener("wheel", (e) => {
       if (!panel.classList.contains("__show")) return;
       const t = e.target;
@@ -586,7 +585,7 @@
       }
     });
 
-    // Limpiar checks reach-map
+    // Limpiar checks
     const clearBtn = panel.querySelector("#__ba_clear");
     clearBtn.addEventListener("click", () => {
       try { localStorage.removeItem(REACH_KEY); } catch {}
@@ -605,7 +604,7 @@
       }, 1200);
     });
 
-    // Cargar/aplicar settings
+    
     const apptSettings = loadApptSettings();
     const puChk  = panel.querySelector("#__ba_copy_pu");
     const delChk = panel.querySelector("#__ba_copy_del");
@@ -623,7 +622,7 @@
     return ui;
   }
 
-  // ============ Render (alfabético + checkbox reach-out) ============
+  // ============ Render ============
   async function renderCarrierList(ui, groups) {
     ui.list.innerHTML = "";
     const entries = Object.entries(groups).sort((a,b) => a[0].localeCompare(b[0]));
@@ -664,7 +663,7 @@
     }
   }
 
-  // ============ Índice por loadNumber ============
+  // ============ Índice  ============
   let LOAD_INDEX = new Map();
   function buildIndex(rows){
     const m = new Map();
@@ -743,7 +742,7 @@
         <div class="sc-row"><span class="sc-label">Route</span><span class="sc-val">${r.puStOnly} → ${r.dlStOnly}</span></div>
       `;
 
-      // Copy (una sola línea)
+      // Copy
       const copyBtn = sc.querySelector("#__ba_sc_copy");
       if (copyBtn){
         copyBtn.addEventListener("click", async (ev) => {
@@ -819,7 +818,7 @@
     setTimeout(attach, 200);
   }
 
-  // ============ Refresh robusto ============
+  // ============ Refresh  ============
   async function refreshBoard(){
     await waitForStableRows({ settleMs: 150, timeoutMs: 3000 });
     const rows = parseBoard();
@@ -831,7 +830,7 @@
     renderSidecarIfOpen();
   }
 
-  // ============ Triggers externos ============
+  // ============ Triggers  ============
   const debouncedExternalRefresh = debounce(() => refreshBoard(), 400);
 
   function hookExternalTriggers(){
@@ -867,7 +866,6 @@
     setTimeout(()=>clearInterval(tryTimer), 10000);
   }
 
-  // ============ Resiliencia SPA ============
   let ui = null;
   function ensureUI(){
     if (!ui || !document.getElementById("__ba_panel")) {
