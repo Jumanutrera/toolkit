@@ -20,21 +20,24 @@ javascript:(function () {
     });
 
   (async () => {
+    // Load html2canvas once
     if (!window.html2canvas) {
-      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+      await loadScript(
+        'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'
+      );
     }
 
+    // Load #
     const lnEl = await waitFor('.load-overview-header__load-status span');
     const loadNumber = lnEl.innerText.match(/#(\d+)/)?.[1] || '----';
 
-    const stopCards = document.querySelectorAll('[id^="stop-card-container--"]');
-    if (!stopCards.length) {
-      alert('No stops found');
+    const container = document.querySelector('#stop-container');
+    if (!container) {
+      alert('Stop container not found');
       return;
     }
 
-    const milesEl = document.querySelector('#stop-card__miles');
-    const miles = milesEl ? milesEl.innerText.trim() : '';
+    const nodes = Array.from(container.children);
 
     // ===== CARD =====
     const card = document.createElement('div');
@@ -46,6 +49,7 @@ javascript:(function () {
       border-radius:6px;
     `;
 
+    // Header
     card.innerHTML = `
       <div style="
         background:#2fa4e7;
@@ -60,67 +64,88 @@ javascript:(function () {
       </div>
     `;
 
-    stopCards.forEach((sc, i) => {
-      const city = sc.querySelector('.stop-card-header__info__header__top > div:first-child');
-      const facility = sc.querySelector('.stop-card-header__name');
-      const date = sc.querySelector('p.appointment');
-      const apptType = sc.querySelector('.stop-card-header__info__appointment__time');
-      const commodity = sc.querySelector('.stop-card-header__commodity span');
+    // Iterate DOM IN ORDER (this is the key fix)
+    nodes.forEach((node) => {
+      // ===== STOP =====
+      if (node.id && node.id.startsWith('stop-card-container--')) {
+        const city = node.querySelector(
+          '.stop-card-header__info__header__top > div:first-child'
+        );
+        const facility = node.querySelector('.stop-card-header__name');
+        const apptDate = node.querySelector('p.appointment');
+        const apptType = node.querySelector(
+          '.stop-card-header__info__appointment__time'
+        );
+        const commodity = node.querySelector(
+          '.stop-card-header__commodity span'
+        );
 
-      if (!city) return;
+        const isPickup = node.querySelector(
+          '.stop-card-header__direction.pickup'
+        );
 
-      const isPickup = i === 0;
+        if (!city) return;
 
-      const stop = document.createElement('div');
-      stop.style.cssText = `
-        background:#ffffff;
-        border-radius:6px;
-        padding:10px;
-        margin-bottom:6px;
-        display:flex;
-        gap:10px;
-      `;
+        const stop = document.createElement('div');
+        stop.style.cssText = `
+          background:#ffffff;
+          border-radius:6px;
+          padding:10px;
+          margin-bottom:6px;
+          display:flex;
+          gap:10px;
+        `;
 
-      stop.innerHTML = `
-        <div style="
-          width:70px;
-          text-align:center;
-          font-size:11px;
-          color:${isPickup ? '#2bb673' : '#e74c3c'};
-        ">
-          <div style="font-weight:bold;">
-            ${isPickup ? 'Pickup' : 'Delivery'}
-          </div>
-          <div style="font-size:22px;">
-            ${isPickup ? '🏭' : '🏬'}
-          </div>
-        </div>
-
-        <div style="flex:1;">
-          <div style="font-weight:bold;font-size:13px;">
-            ${city.innerText}
-          </div>
-          <div style="font-size:12px;color:#666;">
-            ${facility ? facility.innerText : ''}
-          </div>
-
-          <div style="font-size:12px;color:#444;margin-top:4px;">
-            <strong>Appt:</strong> ${date ? date.innerText : ''}
-          </div>
-
-          <div style="font-size:11px;color:#777;">
-            ${apptType ? apptType.innerText : ''}
+        stop.innerHTML = `
+          <div style="
+            width:70px;
+            text-align:center;
+            font-size:11px;
+            color:${isPickup ? '#2bb673' : '#e74c3c'};
+          ">
+            <div style="font-weight:bold;">
+              ${isPickup ? 'Pickup' : 'Delivery'}
+            </div>
+            <div style="font-size:22px;">
+              ${isPickup ? '🏭' : '🏬'}
+            </div>
           </div>
 
-          <div style="font-size:12px;color:#333;margin-top:4px;">
-            <strong>Commodity:</strong> ${commodity ? commodity.innerText : '-'}
+          <div style="flex:1;">
+            <div style="font-weight:bold;font-size:13px;">
+              ${city.innerText}
+            </div>
+
+            <div style="font-size:12px;color:#666;">
+              ${facility ? facility.innerText : ''}
+            </div>
+
+            <div style="font-size:12px;color:#444;margin-top:4px;">
+              <strong>Appt:</strong> ${apptDate ? apptDate.innerText : ''}
+            </div>
+
+            <div style="font-size:11px;color:#777;">
+              ${apptType ? apptType.innerText : ''}
+            </div>
+
+            <div style="font-size:12px;color:#333;margin-top:4px;">
+              <strong>Commodity:</strong> ${
+                commodity ? commodity.innerText : '-'
+              }
+            </div>
           </div>
-        </div>
-      `;
+        `;
 
-      card.appendChild(stop);
+        card.appendChild(stop);
+      }
 
-      if (i === 0 && miles) {
+      // ===== MILES BETWEEN STOPS =====
+      if (node.classList.contains('stop-card-container__miles')) {
+        const miles = node.querySelector(
+          '.stop-card-container__distance'
+        );
+        if (!miles) return;
+
         const milesDiv = document.createElement('div');
         milesDiv.style.cssText = `
           text-align:center;
@@ -128,20 +153,24 @@ javascript:(function () {
           color:#666;
           margin:4px 0 6px;
         `;
-        milesDiv.innerText = miles;
+        milesDiv.innerText = miles.innerText;
+
         card.appendChild(milesDiv);
       }
     });
 
+    // Render OFFSCREEN
     card.style.position = 'fixed';
     card.style.left = '-9999px';
     document.body.appendChild(card);
 
-    const canvas = await html2canvas(card, { scale: 1.15 });
+    // Faster render
+    const canvas = await html2canvas(card, { scale: 1.0 });
     document.body.removeChild(card);
 
     const imgData = canvas.toDataURL('image/png');
 
+    // Open tab with image
     const w = window.open('');
     w.document.write(`
       <html>
@@ -169,7 +198,9 @@ javascript:(function () {
           </style>
         </head>
         <body>
-          <div class="hint">Right click and copy image or drag the image</div>
+          <div class="hint">
+            Right click and copy image or drag the image
+          </div>
           <img src="${imgData}">
         </body>
       </html>
