@@ -25,7 +25,7 @@ const BOOKMARKLETS = [
   },
  {
     key: "get-lane",
-    title: "BOARD-ASSISTANT (RJONES)",
+    title: "GET LATE (OFFERS)",
     desc: "Crea una tarjeta con el lane y el L# de la carga.",
     path: "./scripts/getlane-code.js",
     btn: "GETLANE"
