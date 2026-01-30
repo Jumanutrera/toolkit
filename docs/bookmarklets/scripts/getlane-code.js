@@ -183,7 +183,7 @@ javascript:(function () {
         </head>
         <body>
           <div class="hint">
-            Left click and copy image or drag the image
+            Right click and copy image or drag the image
           </div>
           <img src="${imgData}">
         </body>
