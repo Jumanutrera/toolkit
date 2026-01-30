@@ -22,7 +22,15 @@ const BOOKMARKLETS = [
     desc: "Copia al portapapeles a gran escala desde el Tracking Board, copia por carrier.",
     path: "./scripts/board-assistant.js",
     btn: "BASSIST"
+  },
+ {
+    key: "get-lane",
+    title: "BOARD-ASSISTANT (RJONES)",
+    desc: "Crea una tarjeta con el lane y el L# de la carga.",
+    path: "./scripts/getlane-code.js",
+    btn: "GETLANE"
   }
+
 ];
 
 // ==============================
